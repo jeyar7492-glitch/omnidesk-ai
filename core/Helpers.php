@@ -124,26 +124,30 @@ function get_flash(): array
 // ────────────────────────────────────────────────────────────────────────────
 
 /**
- * Return the full URL for a public asset.
+ * Return the URL for a public asset.
  *
  * @param string $path Relative asset path (e.g. 'css/variables.css').
- * @return string Full URL.
+ * @return string Asset URL.
  */
 function asset(string $path): string
 {
-    return APP_URL . '/assets/' . ltrim($path, '/');
+    return '/assets/' . ltrim($path, '/');
 }
 
 /**
- * Return the full application URL for an internal path.
+ * Return the application URL for an internal path.
  *
  * @param string $path Relative path (e.g. '/dashboard').
- * @return string Full URL.
+ * @return string URL.
  */
 function url(string $path = '/'): string
 {
-    return APP_URL . '/' . ltrim($path, '/');
+    if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) {
+        return $path;
+    }
+    return '/' . ltrim($path, '/');
 }
+
 
 // ────────────────────────────────────────────────────────────────────────────
 // Environment Helpers
@@ -243,6 +247,20 @@ function time_ago(int|string $timestamp): string
         $seconds < 604800 => (int)($seconds / 86400) . ' day' . ((int)($seconds / 86400) !== 1 ? 's' : '') . $suffix,
         default           => format_date($timestamp, 'M j, Y'),
     };
+}
+
+/**
+ * Send a JSON response and terminate.
+ *
+ * @param mixed $data   Data to encode as JSON.
+ * @param int   $status HTTP status code (default: 200).
+ */
+function json_response(mixed $data, int $status = 200): never
+{
+    http_response_code($status);
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    exit();
 }
 
 // ────────────────────────────────────────────────────────────────────────────

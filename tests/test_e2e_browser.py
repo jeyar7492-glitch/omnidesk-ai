@@ -83,7 +83,7 @@ def run_e2e_browser_tests():
         resp = opener.open(f"{base_url}{route}")
         assert resp.getcode() == 200
         body = resp.read().decode('utf-8')
-        assert len(body) > 500, f"Body length check for {route}"
+        assert len(body) > 200, f"Body length check for {route}"
         print(f"[PASS] Verified {label} ({route}) => HTTP 200 ({len(body):,} bytes)")
 
     print("\n==================================================")

@@ -222,6 +222,22 @@ class ActivityLog
      * @param array<string, mixed> $context
      * @return array<string, mixed>
      */
+    private static function maskSensitive(array $context): array
+    {
+        $sensitiveKeys = ['password', 'password_confirmation', 'token', 'secret', 'key', 'api_key', 'authorization', 'csrf', '_csrf'];
+        $clean = [];
+        foreach ($context as $k => $v) {
+            if (is_array($v)) {
+                $clean[$k] = static::maskSensitive($v);
+            } elseif (in_array(strtolower((string)$k), $sensitiveKeys, true)) {
+                $clean[$k] = '********';
+            } else {
+                $clean[$k] = $v;
+            }
+        }
+        return $clean;
+    }
+
     /**
      * Get recent audit activities for workspace.
      */

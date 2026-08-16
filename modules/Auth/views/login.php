@@ -63,12 +63,6 @@ $pageTitle = 'Log In';
                     Sign In to Platform
                 </button>
             </form>
-
-            <div class="auth-demo-credentials p-3 mt-4 rounded bg-surface-subtle text-xs border">
-                <strong class="block mb-1 text-main">Demo Accounts (Pre-configured):</strong>
-                <div class="text-muted font-mono">Admin: demo-admin@omnidesk.io / DemoAdmin2024!</div>
-                <div class="text-muted font-mono">User: demo-user@omnidesk.io / DemoUser2024!</div>
-            </div>
         </div>
 
         <p class="text-center text-xs text-muted mt-6">
