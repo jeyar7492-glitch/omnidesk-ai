@@ -1,370 +1,420 @@
 # OmniDesk AI
 
-> **Enterprise AI-Powered Business Operations Platform**  
-> *An Autonomous Agentic Work Operating System combining Executive Intelligence, CRM, Projects, 6-Column Task Kanban, Finance & Invoicing, Vector RAG Knowledge Vault, Team Collaboration, Workflow Automation, and Cryptographic Tamper-Evident Auditing.*
+> **Enterprise AI-Powered Business Operations Platform**
+>
+> A multi-tenant, agentic business operating system that unifies CRM, projects, task execution, finance, documents/RAG, collaboration, automation, observability, and secure AI-assisted operations.
+
+[![Release](https://img.shields.io/badge/release-v1.0.0-success)](https://github.com/jeyar7492-glitch/omnidesk-ai/releases)
+[![Tests](https://img.shields.io/badge/tests-58%2F58%20passing-success)](https://github.com/jeyar7492-glitch/omnidesk-ai)
+[![PHP](https://img.shields.io/badge/PHP-8.2%2B-777BB4)](https://www.php.net/)
+[![Python](https://img.shields.io/badge/Python-3.14%2B-3776AB)](https://www.python.org/)
+[![Database](https://img.shields.io/badge/MariaDB%2010.4%20%2F%20MySQL%208.0-4479A1)](https://mariadb.org/)
 
 ---
 
-## 1. Overview
-**OmniDesk AI** is an enterprise-grade, multi-tenant business operating system that unifies core business operations—from customer relationship management and project execution to financial ledgers and knowledge discovery—with an autonomous, multi-agent AI engine. Built with strict software engineering standards, OmniDesk AI requires zero external heavy frontend frameworks, utilizing high-performance Vanilla JavaScript and pure CSS custom properties alongside a robust PHP 8.2 MVC backend and a Python 3.14 Agentic AI orchestration gateway.
+## Overview
+
+**OmniDesk AI** is designed as an enterprise operations platform rather than a standalone chatbot. It combines a deterministic business system of record with a multi-agent AI layer that can read live workspace data, reason across domains, and execute controlled business actions.
+
+The platform is built with:
+
+- **HTML5 + Vanilla CSS3 + Vanilla JavaScript** frontend
+- **PHP 8.2+ MVC** backend with a front controller
+- **MariaDB 10.4 / MySQL 8.0+** relational database
+- **Python 3.14+ ASGI** agentic AI gateway
+- **11 specialized AI agents** coordinated by a supervisor
+- **32 registered domain tools** with permission and risk controls
+
+> **Portfolio note:** This repository is structured as a production-style engineering project. Live credentials, `.env` files, database dumps, logs, and private runtime artifacts are intentionally excluded from Git.
+
+## Why OmniDesk AI?
+
+Traditional business applications fragment operations across CRM, project management, finance, documents, communication, and automation tools. Generic AI assistants add another layer but often lack authoritative data access, tenant isolation, transactional safety, and human approval controls.
+
+OmniDesk AI addresses that gap with:
+
+1. **One operational system of record** for business data.
+2. **Live database-backed AI answers** instead of stale conversational approximations.
+3. **Cross-domain agent orchestration** across business functions.
+4. **Human approval for high-risk writes** such as financial mutations.
+5. **Tenant isolation, RBAC, idempotency, concurrency control, and audit chaining** at the application layer.
 
 ---
 
-## 2. Problem Statement
-Modern enterprises face severe fragmentation across disconnected SaaS tools:
-- Disparate systems for CRM, Project Management, and Invoicing cause stale and contradictory financial figures.
-- General-purpose generative AI models hallucinate data, leak cross-tenant secrets, and lack transactional safety.
-- Critical operations lack deterministic idempotency and row-level locking, resulting in overpayments and ledger races.
-- Fragmented logs make forensic auditing difficult and vulnerable to undetected tampering.
+## Core Capabilities
+
+| Area | Capabilities |
+|---|---|
+| **Executive Intelligence** | KPIs, business health, financial summaries, project risk, executive briefings |
+| **CRM** | Leads, customers, pipeline stages, conversion, follow-ups, contacts |
+| **Projects** | Projects, budgets, milestones, progress, health tracking |
+| **Tasks** | 6-column Kanban, priorities, dependencies, comments, assignments |
+| **Finance** | Invoices, payments, receivables, expense tracking, ledger-safe calculations |
+| **Knowledge / RAG** | Workspace-isolated document retrieval and semantic search |
+| **Communication** | Channels, DMs, threads, notifications |
+| **Meetings** | Agendas, notes, action items, task linkage |
+| **Automation** | Event-condition-action workflows, bounded retries, dead-letter handling |
+| **Operations** | Health, security events, audit trail, AI observability |
+| **Global Search** | Cross-domain search with server-side tenant enforcement |
 
 ---
 
-## 3. The Solution: OmniDesk AI
-OmniDesk AI provides an integrated, unified system of record:
-- **Authoritative Database State**: Single source of truth across CRM, Tasks, and Finance with mathematical invariant guarantees ($\text{balance} = \text{total} - \sum\text{payments}$).
-- **Autonomous Multi-Agent Supervisor**: 11 domain-specific agents dynamically route intent, query live database state, and synthesize executive insights.
-- **High-Risk Confirmation Guardrails**: Write actions require explicit human confirmation with cryptographic SHA-256 tokens and spent-hash replay protection.
-- **Tamper-Evident Cryptographic Hash Chaining**: Immutable SHA-256 block-linked audit records detect unauthorized modifications instantly.
+## Agentic AI Architecture
 
----
-
-## 4. Core Features
-- **Executive Intelligence Dashboard**: Real-time KPI summaries, cash-flow projections, revenue velocity, and project risk scoring.
-- **Full CRM Lifecycle**: Lead scoring, 5-stage sales pipeline Kanban, customer account conversion, and contact management.
-- **Project Workspaces & Milestones**: Budget tracking, milestone progress, deadline health, and team allocation.
-- **6-Column Drag-and-Drop Task Kanban**: Priority tagging, assignee management, task dependencies, and activity logs.
-- **Finance & Invoicing Engine**: Multi-item invoice generation, partial payment tracking, decimal-safe arithmetic, and PDF-ready print views.
-- **Vector RAG Knowledge Vault**: Cosine similarity semantic search over company documents with strict workspace tenant partitioning.
-- **Team Collaboration & Communication**: Channels, direct messages, contextual threads, and automated notifications.
-- **Meeting Intelligence**: Agenda scheduling, live meeting minutes, action item delegation, and calendar synchronization.
-- **Autonomous Workflow Automation**: Bounded event-condition-action rule engine with dead-letter queue recovery.
-- **Operations & Health Center**: Real-time diagnostic probes (`/live`, `/ready`, `/health`), security event monitors, and audit trail viewers.
-- **Global Search (Ctrl+K)**: Instant multi-domain fuzzy search across leads, customers, projects, tasks, invoices, and documents.
-
----
-
-## 5. AI Agent Architecture
-The OmniDesk AI intelligence layer operates as an asynchronous Python ASGI microservice featuring specialized domain agents coordinated by a centralized supervisor:
-
-```
-                                  ┌────────────────────────┐
-                                  │   User Request / Web   │
-                                  └───────────┬────────────┘
-                                              │
-                                  ┌───────────▼────────────┐
-                                  │   Prompt Sanitizer     │
-                                  │ (Injection Neutralizer)│
-                                  └───────────┬────────────┘
-                                              │
-                                  ┌───────────▼────────────┐
-                                  │ Multi-Agent Supervisor │
-                                  └───────────┬────────────┘
-                                              │
-         ┌───────────────┬────────────────────┼───────────────────┬───────────────┐
-         │               │                    │                   │               │
-┌────────▼───────┐┌──────▼─────────┐ ┌────────▼─────────┐┌────────▼───────┐┌──────▼─────────┐
-│ ExecutiveAgent ││   CRMAgent     │ │   ProjectAgent    ││   TaskAgent   ││  FinanceAgent   │
-└────────────────┘└────────────────┘ └──────────────────┘└────────────────┘└────────────────┘
-         │               │                    │                   │               │
-┌────────▼───────┐┌──────▼─────────┐ ┌────────▼─────────┐┌────────▼───────┐┌──────▼─────────┐
-│ DocumentAgent  ││   RiskAgent    │ │   MeetingAgent    ││ CommAgent     ││ OperationsAgent │
-└────────────────┘└────────────────┘ └──────────────────┘└────────────────┘└────────────────┘
-```
-
----
-
-## 6. Multi-Agent Supervisor
-The **Supervisor** analyzes natural language queries, detects business domain intent, checks user permissions, and invokes the appropriate specialized agent or multi-step **Planner** to execute cross-domain tasks without data hallucination.
-
----
-
-## 7. AI Tool Registry (32 Registered Domain Tools)
-Every tool is registered with its required RBAC permission, action type (`read` vs `write`), workspace boundary, and risk classification:
-
-| Domain | Tools |
-| :--- | :--- |
-| **Executive / Dashboard** | `get_kpis`, `get_project_health`, `get_task_summary`, `get_crm_pipeline`, `get_financial_summary` |
-| **CRM** | `search_customers`, `get_customer`, `search_leads`, `get_lead`, `create_lead`, `update_lead`, `create_followup`, `convert_lead` *(High-Risk)* |
-| **Projects** | `search_projects`, `get_project`, `create_project`, `update_project` |
-| **Tasks** | `search_tasks`, `get_task`, `create_task`, `update_task`, `move_task`, `add_task_comment` |
-| **Finance** | `search_invoices`, `get_invoice`, `search_expenses`, `create_invoice` *(High-Risk)*, `record_payment` *(High-Risk)* |
-| **Documents / RAG** | `search_documents`, `retrieve_document` |
-| **Operations & Alerts** | `get_notifications`, `create_notification` |
-
----
-
-## 8. RAG Knowledge Vault & Vector Storage
-- **Isolated Storage**: Document chunks are stored and indexed strictly by `workspace_id`.
-- **Passive Data Treatment**: Retrieved text is treated purely as contextual data, preventing prompt injection attacks contained inside documents from hijacking execution.
-
----
-
-## 9. CRM & Sales Pipeline
-- 5-Stage Kanban: `Lead` $\rightarrow$ `Contacted` $\rightarrow$ `Proposal` $\rightarrow$ `Negotiation` $\rightarrow$ `Closed Won / Lost`.
-- Real-time conversion of won leads into active Customer Accounts and initial Projects.
-
----
-
-## 10. Project Management & Milestones
-- Workspace-scoped project tracking with customizable budget caps, assigned project managers, delivery milestones, and real-time completion percentages.
-
----
-
-## 11. Task Kanban Boards
-- 6-Column Workflow: `Backlog` $\rightarrow$ `To Do` $\rightarrow$ `In Progress` $\rightarrow$ `In Review` $\rightarrow$ `Testing` $\rightarrow$ `Completed`.
-- Drag-and-drop support, task priorities (`urgent`, `high`, `medium`, `low`), due dates, and audit-logged comments.
-
----
-
-## 12. Finance & Invoicing Engine
-- Strict mathematical invariant: $\text{balance\_due} = \text{total\_amount} - \text{paid\_amount}$.
-- Automatic status transitions: `unpaid` $\rightarrow$ `partially_paid` $\rightarrow$ `paid`.
-- Rejection of overpayments and prevention of negative balances.
-
----
-
-## 13. Team Communication & Channels
-- Topic-specific public/private channels and 1-on-1 direct messaging with real-time DOM updates and XSS-safe text rendering.
-
----
-
-## 14. Meetings & Action Item Intelligence
-- Agenda scheduling with integrated markdown notes and automatic extraction/assignment of action items linked to project task boards.
-
----
-
-## 15. Workflow Automation Engine
-- Event-Condition-Action rule engine (e.g., *On Invoice Paid $\rightarrow$ Send Notification & Move Project Milestone*).
-- Bounded retries (maximum 3 attempts) and dead-letter queue transition for unrecoverable errors.
-
----
-
-## 16. Operations, Health & Observability
-- **Liveness Probe** (`GET /live`): Fast ping checking process availability.
-- **Readiness Probe** (`GET /ready`): Confirms database connectivity and vector store readiness.
-- **Health Diagnostics** (`GET /health`): Full subsystem check returning JSON health status.
-- **Sanitized Diagnostics**: Operational dashboards never expose internal credentials, session tokens, or raw paths.
-
----
-
-## 17. Global Search (Ctrl+K)
-- Single keyboard shortcut opening an instant modal searching across CRM leads, customers, projects, tasks, invoices, and documents with server-side tenant isolation.
-
----
-
-## 18. Security Architecture
-```
-┌─────────────────────────────────────────────────────────────┐
-│                      OMNIDESK AI SECURITY                   │
-├──────────────────────────────┬──────────────────────────────┤
-│ 1. Zero Unsafe PHP           │ 0 eval, shell_exec, passthru │
-│ 2. Zero Unsafe DOM APIs      │ 100% textContent (No innerHTML)│
-│ 3. Parameterized Queries     │ 100% PDO Prepared Statements │
-│ 4. CSRF Protection           │ Timing-safe hash_equals()    │
-│ 5. Session Hardening         │ HttpOnly, SameSite=Strict    │
-│ 6. Replay Attack Defense     │ Spent Action Hash Validation │
-│ 7. Rate Limiting             │ Brute-force Account Lockout  │
-└──────────────────────────────┴──────────────────────────────┘
+```text
+                         User Request
+                              │
+                              ▼
+                    ┌──────────────────┐
+                    │ Prompt Sanitizer │
+                    └────────┬─────────┘
+                             │
+                             ▼
+                  ┌─────────────────────┐
+                  │ Multi-Agent         │
+                  │ Supervisor / Router │
+                  └─────────┬───────────┘
+                            │
+       ┌────────────┬───────┼────────┬─────────────┐
+       ▼            ▼       ▼        ▼             ▼
+   Executive      CRM    Project    Task        Finance
+       │            │       │        │             │
+       ├────────────┼───────┼────────┼─────────────┤
+       ▼            ▼       ▼        ▼             ▼
+   Document       Risk   Meeting Communication Operations
+                            │
+                            ▼
+                    Automation / Planner
+                            │
+                            ▼
+                    Controlled Tool Calls
+                            │
+                ┌───────────┴───────────┐
+                ▼                       ▼
+          Read Operations        High-Risk Writes
+                                        │
+                                        ▼
+                              Human Approval +
+                              Action Hash Validation
 ```
 
----
+### 11 Specialized Agents
 
-## 19. Role-Based Access Control (RBAC)
-Granular permissions mapped across 5 standard enterprise roles:
-1. **Admin**: Full workspace configuration, user management, and module access.
-2. **Manager**: Team oversight, project management, and reporting.
-3. **Member**: Standard read/write access to assigned projects, tasks, and discussions.
-4. **Viewer**: Read-only access to permitted modules.
-5. **Finance**: Dedicated access to invoicing, ledger reports, and payment processing.
+- `executive_agent`
+- `crm_agent`
+- `project_agent`
+- `task_agent`
+- `finance_agent`
+- `document_agent`
+- `risk_agent`
+- `meeting_agent`
+- `communication_agent`
+- `operations_agent`
+- `automation_agent`
 
----
+The supervisor can route a single request to one agent or coordinate multiple agents for cross-domain synthesis.
 
-## 20. Multi-Tenant Workspace Isolation
-- Every database entity is partitioned with `workspace_id`.
-- URL tampering, POST payload manipulation, and cross-workspace object ID substitutions are blocked server-side (HTTP 403 / 404).
+### 32 Domain Tools
 
----
-
-## 21. Financial Production Safety & Decimal Integrity
-- Monetary computations use decimal-safe calculations.
-- Overpayment attempts are rejected authoritatively before touching the database.
-- Authoritative database values supersede cached or conversational AI memory.
+Tools are registered with domain, permission, workspace scope, read/write classification, and risk controls. Examples include `get_kpis`, `search_leads`, `create_task`, `search_invoices`, `get_invoice`, `search_documents`, `create_project`, `record_payment`, and `convert_lead`.
 
 ---
 
-## 22. Concurrency Row Locking & Idempotency
-- **Transaction-Safe Row Locking**: `SELECT ... FOR UPDATE` ensures concurrent payment attempts on the same invoice are processed sequentially.
-- **Workspace-Scoped Idempotency**: Transactions bearing an `Idempotency-Key` return identical cached receipts on accidental double-submissions.
+## Enterprise Security Model
 
----
+### Multi-Tenant Isolation
 
-## 23. Technology Stack
+Every authenticated workspace operation is server-scoped. Client-supplied workspace identifiers are not trusted as an authority. Database, RAG, and AI tool operations enforce the active workspace boundary.
 
-| Layer | Technology | Rationale |
-| :--- | :--- | :--- |
-| **Frontend** | **HTML5, Vanilla CSS3, Vanilla JS** | Zero bloated dependencies; instantaneous load times; safe DOM APIs |
-| **Backend** | **PHP 8.2+ (MVC Architecture)** | Type-safe, high-performance Front Controller routing with PDO |
-| **Database** | **MariaDB 10.4 / MySQL 8.0** | Relational integrity with 51 InnoDB tables and foreign key constraints |
-| **AI Layer** | **Python 3.14+ (ASGI Gateway)** | Autonomous multi-agent coordination, vector RAG embeddings, and tool routing |
+### RBAC
 
----
+Five enterprise roles are supported:
 
-## 24. System Architecture
+- **Admin** — workspace and system administration
+- **Manager** — team, project, and reporting oversight
+- **Member** — operational read/write access within assigned scope
+- **Viewer** — permitted read-only access
+- **Finance** — finance and invoicing operations
+
+### High-Risk AI Actions
+
+Financial and other sensitive write operations require explicit human confirmation. Confirmation tokens are cryptographically bound to the action context and invalidated after successful execution to prevent replay.
+
+### Financial Integrity
+
+The authoritative invoice invariant is:
+
+```text
+balance_due = total_amount - paid_amount
 ```
-  [Browser Client] ──(HTTP/JSON)──► [PHP Web Server (Port 8000)]
-                                           │
-                        ┌──────────────────┴──────────────────┐
-                        ▼                                     ▼
-             [MySQL / MariaDB (3306)]             [Python AI Gateway (8008)]
-             (51 InnoDB Relational Tables)        (Multi-Agent Supervisor & RAG)
+
+Payments are protected with:
+
+- Decimal-safe monetary calculations
+- `SELECT ... FOR UPDATE` row locking
+- Overpayment rejection
+- Workspace-scoped idempotency keys
+- Atomic transactions and rollback
+- Authoritative database reads over stale AI memory
+
+### Audit Integrity
+
+Audit records use cryptographic hash chaining so historical tampering can be detected rather than silently repaired.
+
+### Application Security
+
+The production audit verified:
+
+- No `eval`, `exec`, `shell_exec`, `system`, `passthru`, or `unserialize` usage
+- No `innerHTML` or `document.write` usage in dynamic UI paths
+- PDO prepared statements for database queries
+- CSRF validation and hardened sessions
+- Prompt-injection defenses for user and retrieved document content
+- Sanitized health and operational diagnostics
+
+---
+
+## RAG Knowledge Vault
+
+Documents are indexed with workspace-aware metadata. Retrieved content is treated as **data**, not executable instructions, so text inside a document cannot override system security rules or tenant boundaries.
+
+```text
+Document → Chunking → Embedding / Vector Store
+                         │
+                         ▼
+                 workspace_id filter
+                         │
+                         ▼
+                  Semantic Retrieval
+                         │
+                         ▼
+                Agent Context / Answer
 ```
 
 ---
 
-## 25. Database Architecture
-- **Total Tables**: 51 normalized enterprise tables.
-- **Engine**: InnoDB with UTF8mb4 character set.
-- **Integrity**: Explicit foreign keys with cascading rules and composite indexes.
+## Operations & Observability
+
+The platform exposes sanitized service probes:
+
+| Endpoint | Purpose |
+|---|---|
+| `GET /live` | Process liveness |
+| `GET /ready` | Runtime readiness |
+| `GET /health` | Detailed sanitized health diagnostics |
+
+Operational dashboards cover:
+
+- Service health and latency
+- Security events
+- Audit trail
+- AI request/tool metrics
+- Automation state and failures
 
 ---
 
-## 26. Installation & Prerequisites
-- **PHP**: 8.1 or higher (PHP 8.2+ recommended with `pdo_mysql`, `curl`, `openssl`, `json`, `session`).
-- **MySQL / MariaDB**: MySQL 8.0+ or MariaDB 10.4+.
-- **Python**: 3.10+ (Python 3.14 tested).
-- **Web Server**: Apache, Nginx, or PHP built-in CLI server.
+## Technology Stack
+
+| Layer | Technology |
+|---|---|
+| Frontend | HTML5, CSS3, Vanilla JavaScript |
+| Backend | PHP 8.2+ MVC / Front Controller |
+| Database | MariaDB 10.4 / MySQL 8.0+, InnoDB |
+| AI Gateway | Python 3.14+ ASGI |
+| AI Architecture | Supervisor + 11 domain agents + 32 tools |
+| Authentication | Server-side sessions + CSRF protection |
+| Data Access | PDO prepared statements |
+| Search / RAG | Workspace-isolated vector retrieval |
+
+No React, Vue, Angular, Node.js, TypeScript, Tailwind, Bootstrap, Laravel, Symfony, or jQuery is required by the application architecture.
 
 ---
 
-## 27. Environment Configuration
-Copy the configuration template:
+## Local Architecture
+
+```text
+┌──────────────────────┐
+│      Browser         │
+└──────────┬───────────┘
+           │ HTTP
+           ▼
+┌──────────────────────┐       ┌─────────────────────────┐
+│ PHP Front Controller │──────►│ MariaDB / MySQL :3306   │
+│       :8000          │       │ Enterprise relational DB │
+└──────────┬───────────┘       └─────────────────────────┘
+           │
+           │ HTTP / JSON
+           ▼
+┌──────────────────────┐
+│ Python AI Gateway    │
+│       :8008          │
+│ Supervisor + Agents  │
+└──────────────────────┘
+```
+
+---
+
+## Installation
+
+### Prerequisites
+
+- PHP 8.1+; PHP 8.2+ recommended
+- PHP extensions: `pdo_mysql`, `curl`, `openssl`, `json`, `session`
+- MariaDB 10.4+ or MySQL 8.0+
+- Python 3.10+; Python 3.14 tested
+- Apache/Nginx or the PHP built-in development server
+
+### 1. Clone
+
+```bash
+git clone https://github.com/jeyar7492-glitch/omnidesk-ai.git
+cd omnidesk-ai
+```
+
+### 2. Configure environment
+
 ```bash
 cp .env.example .env
 ```
-Ensure your `.env` contains:
-```ini
-APP_ENV=production
-APP_DEBUG=false
-APP_URL=http://localhost:8000
-DB_HOST=127.0.0.1
-DB_PORT=3306
-DB_DATABASE=omnidesk
-DB_USERNAME=root
-DB_PASSWORD=
-PYTHON_AI_HOST=127.0.0.1
-PYTHON_AI_PORT=8008
-```
 
----
+Set production-safe values in `.env` and keep that file out of source control.
 
-## 28. Running the PHP Web Application
-Start the PHP development server using the Front Controller router:
-```bash
-php -S 127.0.0.1:8000 -t public public/index.php
-```
+### 3. Create the database
 
----
-
-## 29. Running the Python AI Gateway
-Start the autonomous AI daemon:
-```bash
-python ai/app/main.py
-```
-*(Runs on `http://127.0.0.1:8008`)*
-
----
-
-## 30. Database Setup & Migrations
-Import the schema and demonstration data:
 ```bash
 mysql -u root -e "CREATE DATABASE IF NOT EXISTS omnidesk CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
 mysql -u root omnidesk < database/schema.sql
 mysql -u root omnidesk < database/seed_demo.sql
 ```
 
----
+### 4. Start the PHP application
 
-## 31. Demonstration Credentials
-> **NOTE**: For demonstration/testing environments only.
-
-| Role | Email | Password |
-| :--- | :--- | :--- |
-| **System Administrator** | `demo-admin@omnidesk.io` | `Admin@123` |
-| **Internal Admin** | `admin@omnidesk.internal` | `Admin@123` |
-| **Team Member** | `demo-user@omnidesk.io` | `DemoUser2024!` |
-
----
-
-## 32. Automated Testing Suite (58/58 Tests Passing)
-Run all automated test suites:
 ```bash
-# 1. Master Forensic & Zero-Defect Validator
-python tests/test_final_forensic.py
+php -S 127.0.0.1:8000 -t public public/index.php
+```
 
-# 2. Live Browser & Session E2E Suite (16 Routes)
+### 5. Start the AI gateway
+
+```bash
+python ai/app/main.py
+```
+
+Default local endpoints:
+
+- Web application: `http://127.0.0.1:8000`
+- AI gateway: `http://127.0.0.1:8008`
+
+> Demo credentials, API keys, and production secrets should be supplied through a local/private environment. Do not publish credentials in this repository.
+
+---
+
+## Testing
+
+The release validation covered **58 automated tests across 5 suites**:
+
+```bash
 python tests/test_e2e_browser.py
-
-# 3. Financial Integrity & Invariant Suite
 python tests/test_financial_integrity.py
-
-# 4. Concurrency & Disaster Recovery Suite
 python tests/test_reliability.py
-
-# 5. Production Readiness & Business Lifecycle Suite
+python tests/test_final_forensic.py
 python tests/test_production_readiness.py
 ```
 
+### Release Validation
+
+```text
+58 / 58 tests passing
+0 critical defects
+0 high defects
+0 medium defects
+0 low defects
+```
+
+Coverage included:
+
+- Browser/session E2E flows
+- CSRF and authentication checks
+- Financial mathematical invariants
+- Concurrent payment race protection
+- Idempotency and retry safety
+- Audit-chain tamper detection
+- Multi-agent routing
+- Tool registry and RBAC checks
+- Prompt-injection defenses
+- Multi-tenant isolation
+- Production business lifecycle
+- Backup/restore validation
+
 ---
 
-## 33. Safe Backup & Disaster Recovery Drill
-Create a live database backup:
-```bash
-mysqldump -u root omnidesk --single-transaction --routines --triggers > storage/backups/omnidesk_backup.sql
-```
-Restore the database backup:
-```bash
-mysql -u root omnidesk < storage/backups/omnidesk_backup.sql
-```
+## Production Documentation
+
+The repository includes operational documentation for deployment and administration:
+
+- [`docs/DEPLOYMENT_GUIDE.md`](docs/DEPLOYMENT_GUIDE.md)
+- [`docs/ADMIN_GUIDE.md`](docs/ADMIN_GUIDE.md)
+- [`docs/USER_GUIDE.md`](docs/USER_GUIDE.md)
+- [`docs/AI_GUIDE.md`](docs/AI_GUIDE.md)
+- [`docs/SECURITY_GUIDE.md`](docs/SECURITY_GUIDE.md)
+- [`docs/DATABASE_BACKUP_GUIDE.md`](docs/DATABASE_BACKUP_GUIDE.md)
+- [`docs/AGENT_SYSTEM.md`](docs/AGENT_SYSTEM.md)
+- [`docs/AI_ARCHITECTURE.md`](docs/AI_ARCHITECTURE.md)
+- [`docs/AI_SECURITY.md`](docs/AI_SECURITY.md)
+- [`docs/AI_TESTING.md`](docs/AI_TESTING.md)
+- [`docs/AI_WORKFLOWS.md`](docs/AI_WORKFLOWS.md)
+- [`docs/PROJECT_OVERVIEW.md`](docs/PROJECT_OVERVIEW.md)
+- [`docs/RELEASE_CHECKLIST.md`](docs/RELEASE_CHECKLIST.md)
+
+For forensic release evidence, see [`FINAL_PRODUCTION_FORENSIC_AUDIT.md`](FINAL_PRODUCTION_FORENSIC_AUDIT.md).
 
 ---
 
-## 34. Project Structure
-```
+## Project Structure
+
+```text
 omnidesk-ai/
-├── ai/                      # Python Multi-Agent AI Engine & Vector Store
+├── ai/                  # Python agentic AI gateway
 │   └── app/
-│       ├── agents/          # Domain Agents (Executive, Finance, CRM, etc.)
-│       ├── services/        # Vector RAG, Idempotency, Audit Chaining
-│       └── tools/           # 32 Domain Tools with RBAC & Confirmation
-├── config/                  # Bootstrap, constants, environment loader
-├── core/                    # Security, Database (PDO), Auth, Session, Router
-├── database/                # Schema DDL (schema.sql) & Seed (seed_demo.sql)
-├── docs/                    # Production, Deployment, and Architecture Guides
-├── modules/                 # Modular MVC Controllers & Views
-│   ├── AI/                  # AI Command Center & Human Approvals Queue
-│   ├── CRM/                 # Lead Pipeline & Customer Management
-│   ├── Dashboard/           # Executive & Team Dashboards
-│   ├── Finance/             # Invoices, Payments & Expenses
-│   ├── Operations/          # Observability, Audit Trail & Health Diagnostics
-│   ├── Projects/            # Projects & Milestone Tracking
-│   └── Tasks/               # 6-Column Task Kanban Board
-├── public/                  # Document Root (index.php, CSS, app.js)
-├── storage/                 # Logs, backups, and file storage
-└── tests/                   # 5 Comprehensive Automated Test Suites
+│       ├── agents/      # Specialized domain agents + supervisor
+│       ├── services/    # Finance, RAG, idempotency, audit services
+│       └── tools/       # Registered AI domain tools
+├── config/              # Application configuration and bootstrap
+├── core/                # Auth, security, database, routing, services
+├── database/            # Schema and demonstration seed data
+├── docs/                # Deployment, security, AI and admin guides
+├── modules/             # CRM, projects, tasks, finance, operations, etc.
+├── public/              # Front controller and public assets
+├── tests/               # E2E, forensic, financial and reliability tests
+├── .env.example         # Safe environment template
+└── README.md
 ```
 
 ---
 
-## 35. Screenshot Checklist
-Refer to [docs/SCREENSHOT_CHECKLIST.md](file:///C:/Users/jeyar/projects/omnidesk-ai/docs/SCREENSHOT_CHECKLIST.md) for capturing the 18 key interface views.
+## Release Status
+
+**OmniDesk AI v1.0.0 — Production Release**
+
+- Live runtime validated on Windows
+- PHP 8.2.12 verified
+- Python 3.14.7 verified
+- MariaDB 10.4.32 verified
+- 51 enterprise database tables verified
+- 11 specialized AI agents
+- 32 registered AI tools
+- 58/58 release tests passing
+- Multi-tenant isolation verified
+- Financial concurrency and idempotency verified
+- Backup/restore drill verified
+
+> This repository is a production-style portfolio release. A real deployment should additionally use managed secrets, HTTPS, least-privilege database accounts, production infrastructure monitoring, backups, and provider-specific LLM credentials/configuration.
 
 ---
 
-## 36. Future Cloud Deployment
-- **Containerization**: Deployable via Docker / Docker Compose with PHP-FPM, Nginx, MariaDB, and Python ASGI.
-- **Enterprise High Availability**: Compatible with AWS ECS/EKS, Google Cloud Run, and Azure Container Apps.
+## License
+
+See the repository for the applicable project licensing terms.
 
 ---
 
-## 37. License
-This project is licensed under the **MIT License** — see the LICENSE file for details.
+**Built with PHP, Python, MariaDB/MySQL, HTML5, CSS3, Vanilla JavaScript, and agentic AI architecture.**
