@@ -1,4 +1,4 @@
-# OmniDesk AI v1.0.0 — Enterprise Security Guide
+﻿# OmniDesk AI v1.0.0 — Enterprise Security Guide
 
 ## 1. Security Principles
 - **Authoritative PHP Boundary**: Python AI never authenticates clients directly. All client requests flow through PHP with active session verification.

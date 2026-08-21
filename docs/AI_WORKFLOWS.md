@@ -1,4 +1,4 @@
-# OmniDesk AI — Autonomous Workflows & Proactive Insights
+﻿# OmniDesk AI — Autonomous Workflows & Proactive Insights
 
 ## Autonomous Workflows
 OmniDesk AI supports proactive background workflows:

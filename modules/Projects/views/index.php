@@ -1,6 +1,8 @@
 <?php
 /**
- * OmniDesk AI — Project Directory View (Phase 5)
+ * OmniDesk AI — Project Directory View
+ *
+ * Enterprise project workspaces, task completion progress, budgets, and milestone tracking.
  */
 
 if (!defined('OMNIDESK_APP')) {
@@ -16,13 +18,18 @@ $projects = $result['data'] ?? [];
 <div class="card card-glass p-6 mb-6">
     <div class="flex items-center justify-between flex-wrap gap-4">
         <div>
-            <h1 class="text-2xl font-bold tracking-tight mb-1">Project Workspaces Directory</h1>
-            <p class="text-muted text-sm mb-0">Enterprise project workspaces, task completion progress, budgets, and milestone tracking</p>
+            <div class="flex items-center gap-3 mb-1.5">
+                <h1 class="text-2xl font-extrabold tracking-tight text-main">Project Workspaces & Delivery</h1>
+                <span class="badge badge-brand">Portfolio Master</span>
+            </div>
+            <p class="text-muted text-xs">
+                Enterprise project workspaces, task completion velocity, budget utilization, and milestone roadmaps.
+            </p>
         </div>
 
-        <div class="flex items-center gap-3">
-            <button type="button" class="btn btn-primary text-xs py-1.5 px-3" onclick="document.getElementById('newProjectModal').classList.add('active')">+ New Project</button>
-            <a href="<?= url('/tasks/kanban') ?>" class="btn btn-secondary text-xs py-1.5 px-3">📋 Task Boards</a>
+        <div class="flex items-center gap-2">
+            <button type="button" class="btn btn-sm btn-primary" onclick="document.getElementById('newProjectModal').classList.add('active')">+ New Project</button>
+            <a href="<?= url('/tasks/kanban') ?>" class="btn btn-sm btn-secondary">📋 Task Boards</a>
         </div>
     </div>
 </div>
@@ -32,15 +39,15 @@ $projects = $result['data'] ?? [];
     <form action="<?= url('/projects') ?>" method="GET" class="flex items-center gap-3 flex-wrap m-0 text-xs">
         <input type="text" name="search" class="form-input text-xs py-1.5 px-3 w-64" placeholder="Search project name, code..." value="<?= e($_GET['search'] ?? '') ?>">
 
-        <select name="status" class="form-input text-xs py-1.5 px-3 w-auto">
+        <select name="status" class="form-select text-xs py-1.5 px-3 w-auto">
             <option value="">All Statuses</option>
             <option value="active" <?= ($_GET['status'] ?? '') === 'active' ? 'selected' : '' ?>>Active</option>
             <option value="at_risk" <?= ($_GET['status'] ?? '') === 'at_risk' ? 'selected' : '' ?>>At Risk</option>
             <option value="completed" <?= ($_GET['status'] ?? '') === 'completed' ? 'selected' : '' ?>>Completed</option>
         </select>
 
-        <button type="submit" class="btn btn-secondary text-xs py-1.5 px-3">Filter</button>
-        <a href="<?= url('/projects') ?>" class="text-xs text-muted">Clear</a>
+        <button type="submit" class="btn btn-sm btn-secondary">Filter</button>
+        <a href="<?= url('/projects') ?>" class="text-xs text-muted hover:underline ml-1">Clear</a>
     </form>
 </div>
 
@@ -57,18 +64,18 @@ $projects = $result['data'] ?? [];
                         </span>
                     </div>
 
-                    <h3 class="font-bold text-base text-main mb-1">
+                    <h2 class="font-bold text-base text-main mb-1">
                         <a href="<?= url('/projects/show?id=' . $p['id']) ?>" class="hover:underline text-main">
                             <?= e($p['name']) ?>
                         </a>
-                    </h3>
-                    <p class="text-xs text-muted mb-4 line-clamp-2"><?= e($p['description'] ?: 'No description provided.') ?></p>
+                    </h2>
+                    <p class="text-xs text-muted mb-4 line-clamp-2"><?= e($p['description'] ?: 'Active delivery workspace.') ?></p>
 
                     <!-- Progress Bar -->
                     <div class="mb-4">
                         <div class="flex justify-between text-xs font-semibold mb-1">
-                            <span class="text-muted">Completion</span>
-                            <span class="text-main"><?= e($p['progress']) ?>%</span>
+                            <span class="text-muted">Sprint Delivery</span>
+                            <span class="text-main font-mono"><?= e($p['progress']) ?>%</span>
                         </div>
                         <div class="w-full bg-surface-subtle h-2 rounded-full overflow-hidden border">
                             <div class="h-full bg-brand rounded-full" style="width: <?= e($p['progress']) ?>%"></div>
@@ -77,8 +84,8 @@ $projects = $result['data'] ?? [];
                 </div>
 
                 <div class="pt-3 border-t flex justify-between items-center text-xs">
-                    <span class="text-muted">Budget: <strong class="text-main">$<?= number_format($p['budget'], 0) ?></strong></span>
-                    <a href="<?= url('/projects/show?id=' . $p['id']) ?>" class="btn btn-secondary text-2xs py-1 px-3">Open Project &rarr;</a>
+                    <span class="text-muted">Budget: <strong class="text-main font-mono">$<?= number_format($p['budget'], 0) ?></strong></span>
+                    <a href="<?= url('/projects/show?id=' . $p['id']) ?>" class="btn btn-sm btn-secondary">Open Project &rarr;</a>
                 </div>
             </div>
         <?php endforeach; ?>
@@ -93,37 +100,32 @@ $projects = $result['data'] ?? [];
 <div class="search-modal-backdrop" id="newProjectModal">
     <div class="search-modal-card card card-glass p-6">
         <div class="flex justify-between items-center border-b pb-3 mb-4">
-            <h3 class="font-semibold text-base">Initialize Project Workspace</h3>
+            <h3 class="font-bold text-base text-main">Initialize Project Workspace</h3>
             <button type="button" class="btn-icon" onclick="document.getElementById('newProjectModal').classList.remove('active')">&times;</button>
         </div>
-        <form action="<?= url('/projects/save') ?>" method="POST" class="space-y-3 text-xs">
+        <form action="<?= url('/projects/save') ?>" method="POST" class="space-y-3.5 text-xs">
             <?= csrf_field() ?>
-            <div>
-                <label class="form-label" for="p_name">Project Name *</label>
-                <input type="text" id="p_name" name="name" class="form-input" placeholder="e.g. Core System Refactoring" required>
+            <div class="form-group mb-2">
+                <label class="form-label" for="np_name">Project Title *</label>
+                <input type="text" id="np_name" name="name" class="form-input" placeholder="e.g. Core Infrastructure Migration" required>
             </div>
-            <div>
-                <label class="form-label" for="p_desc">Description</label>
-                <textarea id="p_desc" name="description" class="form-input" rows="3" placeholder="Scope and deliverables..."></textarea>
+            <div class="form-group mb-2">
+                <label class="form-label" for="np_desc">Strategic Scope & Objectives</label>
+                <textarea id="np_desc" name="description" class="form-textarea" rows="3" placeholder="Outline project milestones..."></textarea>
             </div>
-            <div class="grid grid-cols-2 gap-3">
-                <div>
-                    <label class="form-label" for="p_pri">Priority</label>
-                    <select id="p_pri" name="priority" class="form-input">
-                        <option value="medium">Medium</option>
-                        <option value="high">High</option>
-                        <option value="urgent">Urgent</option>
-                        <option value="low">Low</option>
-                    </select>
+            <div class="grid grid-cols-2 gap-3 mb-3">
+                <div class="form-group mb-0">
+                    <label class="form-label" for="np_budget">Allocated Budget ($)</label>
+                    <input type="number" id="np_budget" name="budget" class="form-input" placeholder="50000" step="1000">
                 </div>
-                <div>
-                    <label class="form-label" for="p_budget">Budget ($)</label>
-                    <input type="number" id="p_budget" name="budget" class="form-input" placeholder="50000" step="1000">
+                <div class="form-group mb-0">
+                    <label class="form-label" for="np_dd">Target Completion Date</label>
+                    <input type="date" id="np_dd" name="deadline" class="form-input">
                 </div>
             </div>
-            <div class="pt-3 flex justify-end gap-2">
+            <div class="flex justify-end gap-2 pt-2 border-t">
                 <button type="button" class="btn btn-secondary" onclick="document.getElementById('newProjectModal').classList.remove('active')">Cancel</button>
-                <button type="submit" class="btn btn-primary">Create Project</button>
+                <button type="submit" class="btn btn-primary">+ Launch Workspace</button>
             </div>
         </form>
     </div>

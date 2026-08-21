@@ -1,6 +1,8 @@
 <?php
 /**
- * OmniDesk AI — Enterprise Audit Trail View (Phase 11)
+ * OmniDesk AI — Enterprise Audit Trail View
+ *
+ * Immutable Record of User Actions, Financial Transactions, CRM Conversions & AI Executions.
  */
 
 if (!defined('OMNIDESK_APP')) {
@@ -16,44 +18,62 @@ $logList = $logs ?? [];
 <div class="card card-glass p-6 mb-6">
     <div class="flex items-center justify-between flex-wrap gap-4">
         <div>
-            <h1 class="text-2xl font-bold tracking-tight mb-1">📜 Enterprise Audit Trail</h1>
-            <p class="text-muted text-sm mb-0">Immutable Record of User Actions, Financial Transactions, CRM Conversions & AI Executions</p>
+            <div class="flex items-center gap-3 mb-1.5">
+                <h1 class="text-2xl font-extrabold tracking-tight text-main">Immutable Enterprise Audit Trail</h1>
+                <span class="badge badge-brand">Cryptographic Ledger</span>
+            </div>
+            <p class="text-muted text-xs">
+                Tamper-evident record of user operations, financial write transactions, CRM conversions, and AI executions.
+            </p>
+        </div>
+
+        <div class="flex items-center gap-2">
+            <a href="<?= url('/operations/health') ?>" class="btn btn-sm btn-secondary">🖥️ System Health</a>
+            <a href="<?= url('/operations/security') ?>" class="btn btn-sm btn-secondary">🛡️ Security Logs</a>
+            <a href="<?= url('/operations/ai') ?>" class="btn btn-sm btn-secondary">⚡ AI Observability</a>
         </div>
     </div>
 </div>
 
 <!-- ── Audit Trail Table ────────────────────────────────────────────── -->
-<div class="card p-6 mb-6">
-    <div class="table-responsive">
-        <table class="table-custom w-full text-xs">
-            <thead>
-                <tr class="border-b text-left text-muted uppercase">
-                    <th class="p-3">Timestamp</th>
-                    <th class="p-3">Action Type</th>
-                    <th class="p-3">Entity / Target</th>
-                    <th class="p-3">User</th>
-                    <th class="p-3">Details</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php if (!empty($logList)): ?>
-                    <?php foreach ($logList as $l): ?>
-                        <tr class="border-b hover:bg-surface-subtle">
-                            <td class="p-3 font-mono text-muted"><?= e($l['created_at']) ?></td>
-                            <td class="p-3 font-bold text-brand font-mono"><?= e($l['action']) ?></td>
-                            <td class="p-3 font-semibold text-main"><?= e($l['entity_type']) ?> #<?= e($l['entity_id'] ?? '-') ?></td>
-                            <td class="p-3 text-muted"><?= e($l['user_name'] ?? 'System User') ?></td>
-                            <td class="p-3 text-muted text-xs"><?= e($l['details'] ?? 'Action executed') ?></td>
-                        </tr>
-                    <?php endforeach; ?>
-                <?php else: ?>
+<div class="table-container mb-6">
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Timestamp</th>
+                <th>Action Identifier</th>
+                <th>Target Resource</th>
+                <th>Actor / Identity</th>
+                <th>Audit Context Details</th>
+            </tr>
+        </thead>
+        <tbody>
+            <?php if (!empty($logList)): ?>
+                <?php foreach ($logList as $l): ?>
                     <tr>
-                        <td colspan="5" class="text-center p-6 text-muted">No audit trail entries recorded.</td>
+                        <td class="font-mono text-muted text-xs whitespace-nowrap"><?= e($l['created_at']) ?></td>
+                        <td>
+                            <span class="badge badge-brand font-mono uppercase text-2xs"><?= e($l['action']) ?></span>
+                        </td>
+                        <td class="font-semibold text-main text-xs">
+                            <?= e($l['entity_type']) ?> <span class="font-mono text-muted">#<?= e($l['entity_id'] ?? '-') ?></span>
+                        </td>
+                        <td class="text-main font-medium text-xs">
+                            <span class="mr-1">👤</span> <?= e($l['user_name'] ?? 'System Daemon') ?>
+                        </td>
+                        <td class="text-muted text-xs max-w-lg leading-relaxed"><?= e($l['details'] ?? 'Operation committed.') ?></td>
                     </tr>
-                <?php endif; ?>
-            </tbody>
-        </table>
-    </div>
+                <?php endforeach; ?>
+            <?php else: ?>
+                <tr>
+                    <td colspan="5" class="text-center p-8 text-muted">
+                        <div class="text-sm font-semibold text-main mb-1">No audit trail records found</div>
+                        <div class="text-2xs text-muted">All system actions will appear here in chronological order.</div>
+                    </td>
+                </tr>
+            <?php endif; ?>
+        </tbody>
+    </table>
 </div>
 
 <?php require_once MODULES_PATH . '/Shared/views/app_shell_end.php'; ?>

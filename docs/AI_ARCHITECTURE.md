@@ -1,4 +1,4 @@
-# OmniDesk AI — Autonomous Business Agent Platform Architecture
+﻿# OmniDesk AI — Autonomous Business Agent Platform Architecture
 
 ## Overview
 OmniDesk AI features a multi-tiered 3-layer architecture:

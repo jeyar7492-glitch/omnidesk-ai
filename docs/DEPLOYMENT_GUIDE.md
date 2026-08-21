@@ -1,4 +1,4 @@
-# OmniDesk AI v1.0.0 — Production Deployment Guide
+﻿# OmniDesk AI v1.0.0 — Production Deployment Guide
 
 ## 1. System Requirements
 - **Operating System**: Linux (Ubuntu 22.04+ LTS / Debian 12 / RHEL 9) or Windows Server 2022+

@@ -1,6 +1,8 @@
 <?php
 /**
- * OmniDesk AI — Full-page Enterprise Agentic AI Workspace Assistant (Phase 7)
+ * OmniDesk AI — Full-page Enterprise Agentic AI Workspace Assistant
+ *
+ * Autonomous Workspace Assistant, Multitenant Isolated, RBAC Protected.
  */
 
 if (!defined('OMNIDESK_APP')) {
@@ -17,36 +19,38 @@ $convId  = $conversationId ?? 1;
 <div class="card card-glass p-6 mb-6">
     <div class="flex items-center justify-between flex-wrap gap-4">
         <div>
-            <div class="flex items-center gap-3 mb-1">
-                <h1 class="text-2xl font-bold tracking-tight mb-0">⚡ OmniDesk Agentic AI Engine</h1>
-                <span class="badge badge-brand">Python AI Gateway Online</span>
+            <div class="flex items-center gap-3 mb-1.5">
+                <h1 class="text-2xl font-extrabold tracking-tight text-main">Autonomous AI Workspace Copilot</h1>
+                <span class="badge badge-brand">AI Gateway Live</span>
             </div>
-            <p class="text-muted text-sm mb-0">Autonomous Workspace Assistant &bull; Multitenant Isolated &bull; RBAC Protected</p>
+            <p class="text-muted text-xs">
+                Autonomous cross-domain assistant &bull; Multi-tenant isolated memory &bull; Zero-trust RBAC execution
+            </p>
         </div>
 
-        <div class="flex items-center gap-3">
-            <span class="badge badge-secondary text-xs">Workspace Context #<?= e($activeWorkspace['id']) ?></span>
+        <div class="flex items-center gap-2">
+            <a href="<?= url('/ai/command-center') ?>" class="btn btn-sm btn-primary">⚡ AI Command Center</a>
         </div>
     </div>
 </div>
 
 <!-- ── Agentic AI Chat Workspace Interface ──────────────────────────── -->
-<div class="card p-6 mb-6 flex flex-col" style="min-height: 520px;">
+<div class="card p-6 mb-6 flex flex-col" style="min-height: 540px;">
     <!-- Chat Messages Scroll Container -->
-    <div class="flex-1 overflow-y-auto space-y-4 mb-4 p-4 rounded bg-surface-subtle border" id="aiChatThread" style="max-height: 420px;">
+    <div class="flex-1 overflow-y-auto space-y-4 mb-4 p-4 rounded-xl bg-surface-subtle border" id="aiChatThread" style="max-height: 420px;">
         <?php if (!empty($msgList)): ?>
             <?php foreach ($msgList as $m): ?>
                 <div class="flex flex-col <?= $m['role'] === 'user' ? 'items-end' : 'items-start' ?>">
                     <div class="flex items-center gap-2 mb-1">
                         <span class="font-bold text-2xs uppercase text-muted"><?= e($m['role'] === 'user' ? 'You' : 'OmniDesk AI Agent') ?></span>
                     </div>
-                    <div class="p-3 rounded-lg text-xs max-w-2xl leading-relaxed <?= $m['role'] === 'user' ? 'bg-brand text-white' : 'bg-surface border text-main' ?>" style="white-space: pre-wrap;">
+                    <div class="p-3.5 rounded-xl text-xs max-w-2xl leading-relaxed <?= $m['role'] === 'user' ? 'bg-brand text-white' : 'bg-surface border text-main' ?>" style="white-space: pre-wrap;">
                         <?= e($m['content']) ?>
                     </div>
                 </div>
             <?php endforeach; ?>
         <?php else: ?>
-            <div class="text-center text-muted text-xs py-12">
+            <div class="text-center text-muted text-xs py-14">
                 ⚡ OmniDesk Agentic AI Assistant ready.<br>
                 Try asking: <em>"Give me an executive briefing on workspace revenue and overdue items"</em> or <em>"Show me active project tasks"</em>
             </div>
@@ -56,9 +60,9 @@ $convId  = $conversationId ?? 1;
     <!-- Suggested Action Chips -->
     <div class="flex items-center gap-2 flex-wrap mb-3 text-2xs">
         <span class="text-muted font-bold">Suggested:</span>
-        <button type="button" class="btn btn-secondary text-2xs py-1 px-2.5" onclick="OmniDeskAI.sendPrompt('Give me an executive briefing on workspace performance and overdue items')">Executive Briefing</button>
-        <button type="button" class="btn btn-secondary text-2xs py-1 px-2.5" onclick="OmniDeskAI.sendPrompt('Show active project tasks and Kanban status')">Active Tasks</button>
-        <button type="button" class="btn btn-secondary text-2xs py-1 px-2.5" onclick="OmniDeskAI.sendPrompt('Summarize CRM sales leads pipeline')">CRM Leads</button>
+        <button type="button" class="btn btn-sm btn-secondary text-2xs py-1 px-2.5" onclick="OmniDeskAI.sendPrompt('Give me an executive briefing on workspace performance and overdue items')">Executive Briefing</button>
+        <button type="button" class="btn btn-sm btn-secondary text-2xs py-1 px-2.5" onclick="OmniDeskAI.sendPrompt('Show active project tasks and Kanban status')">Active Tasks</button>
+        <button type="button" class="btn btn-sm btn-secondary text-2xs py-1 px-2.5" onclick="OmniDeskAI.sendPrompt('Summarize CRM sales leads pipeline')">CRM Leads</button>
     </div>
 
     <!-- Chat Prompt Form -->
@@ -89,38 +93,36 @@ window.OmniDeskAI = {
         // Append User Message to UI
         const userBubble = document.createElement('div');
         userBubble.className = 'flex flex-col items-end';
-        
+
         const userHeader = document.createElement('div');
-        userHeader.className = 'flex items-center gap-2 mb-1';
-        userHeader.textContent = 'YOU';
         userHeader.className = 'font-bold text-2xs uppercase text-muted mb-1';
-        
+        userHeader.textContent = 'YOU';
+
         const userContent = document.createElement('div');
-        userContent.className = 'p-3 rounded-lg text-xs max-w-2xl leading-relaxed bg-brand text-white';
+        userContent.className = 'p-3.5 rounded-xl text-xs max-w-2xl leading-relaxed bg-brand text-white';
         userContent.style.whiteSpace = 'pre-wrap';
         userContent.textContent = msg;
-        
+
         userBubble.appendChild(userHeader);
         userBubble.appendChild(userContent);
         thread.appendChild(userBubble);
 
         input.value = '';
         btn.disabled = true;
-        btn.innerText = 'Reasoning...';
+        btn.innerText = 'Consulting AI...';
 
         // Append Typing Bubble
         const agentBubble = document.createElement('div');
         agentBubble.className = 'flex flex-col items-start';
-        
+
         const agentHeader = document.createElement('div');
-        agentHeader.className = 'flex items-center gap-2 mb-1';
-        agentHeader.textContent = 'OMNIDESK AI AGENT';
         agentHeader.className = 'font-bold text-2xs uppercase text-muted mb-1';
-        
+        agentHeader.textContent = 'OMNIDESK AI AGENT';
+
         const agentContent = document.createElement('div');
-        agentContent.className = 'p-3 rounded-lg text-xs max-w-2xl leading-relaxed bg-surface border text-muted';
-        agentContent.textContent = '⚡ Reasoning and querying workspace context...';
-        
+        agentContent.className = 'p-3.5 rounded-xl text-xs max-w-2xl leading-relaxed bg-surface border text-muted';
+        agentContent.textContent = '⚡ Consulting domain agents and querying business ledger...';
+
         agentBubble.appendChild(agentHeader);
         agentBubble.appendChild(agentContent);
         thread.appendChild(agentBubble);
@@ -143,22 +145,18 @@ window.OmniDeskAI = {
 
             const data = await res.json();
             if (data.success) {
-                agentContent.className = 'p-3 rounded-lg text-xs max-w-2xl leading-relaxed bg-surface border text-main';
+                agentContent.className = 'p-3.5 rounded-xl text-xs max-w-2xl leading-relaxed bg-surface border text-main';
                 agentContent.textContent = data.response;
             } else {
-                agentContent.textContent = 'Error: ' + (data.message || 'Processing failed.');
+                agentContent.textContent = 'Error: ' + (data.message || 'AI request failed.');
             }
         } catch (e) {
-            agentContent.textContent = 'Server error processing request.';
+            agentContent.textContent = 'Server error communicating with AI engine.';
         } finally {
             btn.disabled = false;
             btn.innerText = 'Send Prompt ↵';
             thread.scrollTop = thread.scrollHeight;
         }
-    },
-
-    escapeHtml(str) {
-        return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     }
 };
 </script>

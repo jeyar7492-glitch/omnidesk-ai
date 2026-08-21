@@ -1,6 +1,9 @@
 <?php
 /**
- * OmniDesk AI — CRM Overview Dashboard View (Phase 4)
+ * OmniDesk AI — CRM Sales Management & Pipeline Overview
+ *
+ * Enterprise sales hub: Pipeline health metrics, conversion ratios,
+ * stage breakdown, and quick deal intake.
  */
 
 if (!defined('OMNIDESK_APP')) {
@@ -16,106 +19,130 @@ $sum = $summary ?? [];
 <div class="card card-glass p-6 mb-6">
     <div class="flex items-center justify-between flex-wrap gap-4">
         <div>
-            <div class="flex items-center gap-3 mb-1">
-                <h1 class="text-2xl font-bold tracking-tight mb-0">CRM & Sales Management</h1>
-                <span class="badge badge-success">Workspace Active</span>
+            <div class="flex items-center gap-3 mb-1.5">
+                <h1 class="text-2xl font-extrabold tracking-tight text-main">CRM & Customer Accounts</h1>
+                <span class="badge badge-brand">Sales Engine</span>
             </div>
-            <p class="text-muted text-sm mb-0">Customer Relationship Management, Leads Pipeline, and Deal Tracking</p>
+            <p class="text-muted text-xs">
+                Pipeline Lifecycle Governance &bull; Opportunity Velocity &bull; Customer Directory &bull; Enterprise Deal Flow
+            </p>
         </div>
 
-        <div class="flex items-center gap-3">
-            <a href="<?= url('/crm/pipeline') ?>" class="btn btn-primary text-xs py-1.5 px-3">📊 Pipeline Kanban</a>
-            <a href="<?= url('/crm/customers') ?>" class="btn btn-secondary text-xs py-1.5 px-3">🏢 Customers Directory</a>
-            <a href="<?= url('/crm/contacts') ?>" class="btn btn-secondary text-xs py-1.5 px-3">👥 Contacts</a>
-            <a href="<?= url('/crm/leads') ?>" class="btn btn-secondary text-xs py-1.5 px-3">🎯 All Leads</a>
+        <div class="flex items-center gap-2">
+            <a href="<?= url('/crm/pipeline') ?>" class="btn btn-sm btn-primary">📊 Pipeline Kanban</a>
+            <a href="<?= url('/crm/customers') ?>" class="btn btn-sm btn-secondary">🏢 Customers Directory</a>
+            <a href="<?= url('/crm/contacts') ?>" class="btn btn-sm btn-secondary">👥 Contacts</a>
+            <a href="<?= url('/crm/leads') ?>" class="btn btn-sm btn-secondary">🎯 All Leads</a>
         </div>
     </div>
 </div>
 
-<!-- ── CRM KPI Metric Cards ─────────────────────────────────────────── -->
+<!-- ── 4 CRM KPI Cards ──────────────────────────────────────────────── -->
 <div class="grid grid-cols-4 gap-4 mb-6">
-    <div class="card p-4">
-        <div class="text-muted text-xs font-medium uppercase tracking-wider mb-1">Total Pipeline Value</div>
-        <div class="text-2xl font-bold text-main mb-1">$<?= number_format($sum['total_value'] ?? 0, 2) ?></div>
-        <div class="text-xs text-muted"><?= e($sum['total_leads'] ?? 0) ?> Total Deals</div>
+    <div class="kpi-card">
+        <div class="kpi-header">
+            <span class="kpi-label">Gross Pipeline</span>
+            <span class="kpi-icon-pill">💰</span>
+        </div>
+        <div class="kpi-value text-main font-mono">$<?= number_format($sum['total_value'] ?? 0, 2) ?></div>
+        <div class="kpi-footer text-muted"><span><?= e($sum['total_leads'] ?? 0) ?> Total Active Deals</span></div>
     </div>
 
-    <div class="card p-4">
-        <div class="text-muted text-xs font-medium uppercase tracking-wider mb-1">Weighted Pipeline</div>
-        <div class="text-2xl font-bold text-brand mb-1">$<?= number_format($sum['weighted_value'] ?? 0, 2) ?></div>
-        <div class="text-xs text-success font-medium">Probability Weighted</div>
+    <div class="kpi-card">
+        <div class="kpi-header">
+            <span class="kpi-label">Weighted Pipeline</span>
+            <span class="kpi-icon-pill">📈</span>
+        </div>
+        <div class="kpi-value text-brand font-mono">$<?= number_format($sum['weighted_value'] ?? 0, 2) ?></div>
+        <div class="kpi-footer text-success font-medium"><span>Probability-Adjusted</span></div>
     </div>
 
-    <div class="card p-4">
-        <div class="text-muted text-xs font-medium uppercase tracking-wider mb-1">Deals Won Value</div>
-        <div class="text-2xl font-bold text-success mb-1">$<?= number_format($sum['won_value'] ?? 0, 2) ?></div>
-        <div class="text-xs text-success font-medium">Closed Won</div>
+    <div class="kpi-card">
+        <div class="kpi-header">
+            <span class="kpi-label">Closed Won Revenue</span>
+            <span class="kpi-icon-pill" style="color: var(--status-success); background: var(--status-success-bg);">🏆</span>
+        </div>
+        <div class="kpi-value text-success font-mono">$<?= number_format($sum['won_value'] ?? 0, 2) ?></div>
+        <div class="kpi-footer text-success font-medium"><span>Converted Contracts</span></div>
     </div>
 
-    <div class="card p-4">
-        <div class="text-muted text-xs font-medium uppercase tracking-wider mb-1">Conversion Rate</div>
-        <div class="text-2xl font-bold text-main mb-1"><?= e($sum['conversion_rate'] ?? 0) ?>%</div>
-        <div class="text-xs text-muted">Lead to Customer Ratio</div>
+    <div class="kpi-card">
+        <div class="kpi-header">
+            <span class="kpi-label">Conversion Rate</span>
+            <span class="kpi-icon-pill">⚡</span>
+        </div>
+        <div class="kpi-value text-main font-mono"><?= e($sum['conversion_rate'] ?? 0) ?>%</div>
+        <div class="kpi-footer text-muted"><span>Lead to Customer Velocity</span></div>
     </div>
 </div>
 
-<!-- ── Pipeline Stages Breakdown Row ──────────────────────────────────── -->
+<!-- ── Stage Breakdown & Quick Deal Entry ────────────────────────────── -->
 <div class="grid grid-cols-2 gap-6 mb-6">
-    <!-- Pipeline Stage Distribution -->
+
+    <!-- Stage Breakdown -->
     <div class="card p-6">
-        <h3 class="font-semibold text-base border-b pb-3 mb-4">Pipeline Stage Distribution</h3>
-        <div class="space-y-3 text-xs">
+        <div class="card-header border-b pb-3 mb-4 flex items-center justify-between">
+            <h2 class="card-title">Pipeline Stage Distribution</h2>
+            <span class="badge badge-neutral">Stage Funnel</span>
+        </div>
+        <div class="space-y-2.5 text-xs">
             <?php
             $stageNames = [
-                'new_lead' => 'New Lead In', 'qualified' => 'Qualified Prospect',
-                'proposal' => 'Proposal Out', 'negotiation' => 'In Negotiation',
-                'won' => 'Closed Won', 'lost' => 'Closed Lost'
+                'new_lead'    => 'New Inbound Lead',
+                'qualified'   => 'Qualified Opportunity',
+                'proposal'    => 'Proposal Delivered',
+                'negotiation' => 'Contract Negotiation',
+                'won'         => 'Closed Won',
+                'lost'        => 'Closed Lost'
             ];
             foreach ($sum['stages'] ?? [] as $sKey => $stgData):
             ?>
-                <div class="p-2.5 rounded bg-surface-subtle border flex justify-between items-center">
+                <div class="p-3 rounded-lg bg-surface-subtle border flex justify-between items-center">
                     <div>
-                        <div class="font-medium text-main"><?= e($stageNames[$sKey] ?? $sKey) ?></div>
-                        <div class="text-muted text-xs"><?= e($stgData['count']) ?> Deals</div>
+                        <div class="font-semibold text-main"><?= e($stageNames[$sKey] ?? $sKey) ?></div>
+                        <div class="text-muted text-xs"><?= e($stgData['count']) ?> Deals in Stage</div>
                     </div>
-                    <div class="font-mono font-semibold">$<?= number_format($stgData['value'], 0) ?></div>
+                    <div class="font-mono font-bold text-main">$<?= number_format($stgData['value'], 0) ?></div>
                 </div>
             <?php endforeach; ?>
         </div>
     </div>
 
-    <!-- Quick New Lead Form Card -->
+    <!-- Quick Deal Entry Form -->
     <div class="card p-6">
-        <h3 class="font-semibold text-base border-b pb-3 mb-4">Add Lead to Pipeline</h3>
-        <form action="<?= url('/crm/leads/save') ?>" method="POST" class="space-y-3 text-xs">
+        <div class="card-header border-b pb-3 mb-4 flex items-center justify-between">
+            <h2 class="card-title">Create Sales Opportunity</h2>
+            <span class="badge badge-brand">Instant Intake</span>
+        </div>
+        <form action="<?= url('/crm/leads/save') ?>" method="POST" class="space-y-3.5 text-xs">
             <?= csrf_field() ?>
-            <div>
+            <div class="form-group mb-2">
                 <label class="form-label" for="l_title">Deal Title *</label>
                 <input type="text" id="l_title" name="title" class="form-input" placeholder="e.g. Enterprise Cloud License Renewal" required>
             </div>
-            <div class="grid grid-cols-2 gap-3">
-                <div>
-                    <label class="form-label" for="l_cname">Company Name</label>
-                    <input type="text" id="l_cname" name="company_name" class="form-input" placeholder="Company...">
+            <div class="grid grid-cols-2 gap-3 mb-2">
+                <div class="form-group mb-0">
+                    <label class="form-label" for="l_cname">Account / Company</label>
+                    <input type="text" id="l_cname" name="company_name" class="form-input" placeholder="Acme Corp">
                 </div>
-                <div>
+                <div class="form-group mb-0">
                     <label class="form-label" for="l_val">Estimated Value ($)</label>
                     <input type="number" id="l_val" name="estimated_value" class="form-input" placeholder="50000" step="100">
                 </div>
             </div>
-            <div class="grid grid-cols-2 gap-3">
-                <div>
-                    <label class="form-label" for="l_stage">Stage</label>
-                    <select id="l_stage" name="stage" class="form-input">
+            <div class="grid grid-cols-2 gap-3 mb-3">
+                <div class="form-group mb-0">
+                    <label class="form-label" for="l_stage">Pipeline Stage</label>
+                    <select id="l_stage" name="stage" class="form-select">
                         <option value="new_lead">New Lead</option>
                         <option value="qualified">Qualified</option>
                         <option value="proposal">Proposal</option>
                         <option value="negotiation">Negotiation</option>
                     </select>
                 </div>
-                <div>
-                    <label class="form-label" for="l_pri">Priority</label>
-                    <select id="l_pri" name="priority" class="form-input">
+                <div class="form-group mb-0">
+                    <label class="form-label" for="l_pri">Priority Tier</label>
+                    <select id="l_pri" name="priority" class="form-select">
                         <option value="medium">Medium</option>
                         <option value="high">High</option>
                         <option value="urgent">Urgent</option>
@@ -124,10 +151,11 @@ $sum = $summary ?? [];
                 </div>
             </div>
             <div class="pt-2 text-right">
-                <button type="submit" class="btn btn-primary text-xs py-2 px-4">+ Create Deal Entry</button>
+                <button type="submit" class="btn btn-sm btn-primary">+ Create Sales Deal</button>
             </div>
         </form>
     </div>
+
 </div>
 
 <?php require_once MODULES_PATH . '/Shared/views/app_shell_end.php'; ?>

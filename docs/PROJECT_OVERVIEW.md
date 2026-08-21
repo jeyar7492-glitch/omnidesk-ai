@@ -1,4 +1,4 @@
-# OmniDesk AI — Project Portfolio & Interview Guide
+﻿# OmniDesk AI — Project Portfolio & Interview Guide
 
 ## 1. Executive Summary
 - **Project Name:** OmniDesk AI

@@ -1,4 +1,4 @@
-# OmniDesk AI — Screenshot Presentation Checklist
+﻿# OmniDesk AI — Screenshot Presentation Checklist
 
 This checklist details the 18 key user interface views to capture for GitHub repositories, portfolios, and demonstration slides:
 

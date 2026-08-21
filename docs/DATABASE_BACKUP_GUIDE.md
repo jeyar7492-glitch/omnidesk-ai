@@ -1,4 +1,4 @@
-# OmniDesk AI — Enterprise Database Backup & Disaster Recovery Runbook (Phase 14)
+﻿# OmniDesk AI — Enterprise Database Backup & Disaster Recovery Runbook (Phase 14)
 
 ## 1. Enterprise Backup Strategy & Architecture
 OmniDesk AI implements a multi-tier disaster recovery architecture designed for zero data loss and strict compliance with financial integrity invariants:
@@ -73,7 +73,7 @@ Every restored database snapshot must pass the automated mathematical integrity 
 
 ```sql
 -- 1. Check Invoice Header vs Payments Sum Invariant
-SELECT 
+SELECT
     i.id,
     i.invoice_number,
     i.total_amount,
@@ -81,9 +81,9 @@ SELECT
     COALESCE(SUM(p.amount), 0) AS calculated_paid,
     i.balance_due,
     (i.total_amount - COALESCE(SUM(p.amount), 0)) AS calculated_balance,
-    CASE 
-        WHEN i.paid_amount = COALESCE(SUM(p.amount), 0) 
-         AND i.balance_due = (i.total_amount - COALESCE(SUM(p.amount), 0)) 
+    CASE
+        WHEN i.paid_amount = COALESCE(SUM(p.amount), 0)
+         AND i.balance_due = (i.total_amount - COALESCE(SUM(p.amount), 0))
         THEN 'VERIFIED'
         ELSE 'DATA_INCONSISTENCY'
     END AS integrity_status

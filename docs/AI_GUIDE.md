@@ -1,4 +1,4 @@
-# OmniDesk AI v1.0.0 — Agentic AI Platform Guide
+﻿# OmniDesk AI v1.0.0 — Agentic AI Platform Guide
 
 ## 1. Architecture Overview
 OmniDesk AI employs a multi-agent supervisor architecture in Python 3.11+:

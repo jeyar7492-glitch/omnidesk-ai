@@ -1,4 +1,4 @@
-# OmniDesk AI — AI System Testing Guide
+﻿# OmniDesk AI — AI System Testing Guide
 
 ## Agentic AI Core Test Suite
 1. **Executive Briefing**: Verify `get_kpis` tool execution and Business Health calculation.

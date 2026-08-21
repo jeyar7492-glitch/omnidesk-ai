@@ -1,6 +1,6 @@
-# OmniDesk AI — Production CI/CD & Quality Assurance
+﻿# OmniDesk AI — Production CI/CD & Quality Assurance
 
-> **Continuous Integration and Pre-Flight Validation Architecture**  
+> **Continuous Integration and Pre-Flight Validation Architecture**
 > *Deterministic static analysis, multi-language compilation, security leak prevention, and automated regression testing.*
 
 ---

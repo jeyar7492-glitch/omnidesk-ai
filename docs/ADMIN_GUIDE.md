@@ -1,4 +1,4 @@
-# OmniDesk AI v1.0.0 — Administrator Operations Guide
+﻿# OmniDesk AI v1.0.0 — Administrator Operations Guide
 
 ## 1. Overview
 The OmniDesk AI Admin Suite provides centralized controls for:

@@ -1,4 +1,4 @@
-# OmniDesk AI v1.0.0 — User Guide & Workspaces
+﻿# OmniDesk AI v1.0.0 — User Guide & Workspaces
 
 ## 1. Overview
 OmniDesk AI is an enterprise agentic work operating system designed for cross-functional teams.

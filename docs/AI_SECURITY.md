@@ -1,4 +1,4 @@
-# OmniDesk AI — Security & Human Approval Controls
+﻿# OmniDesk AI — Security & Human Approval Controls
 
 ## Security Boundaries
 

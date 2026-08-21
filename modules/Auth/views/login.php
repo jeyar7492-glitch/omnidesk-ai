@@ -23,11 +23,11 @@ $pageTitle = 'Sign In — OmniDesk AI';
 
     <div class="auth-viewport-wrapper">
         <div class="auth-split-layout">
-            
+
             <!-- ── Left Column: Brand & Capability Showcase ─────────────── -->
             <section class="auth-brand-panel" aria-label="Platform Overview">
                 <div class="brand-panel-content">
-                    
+
                     <!-- Brand Identity Mark -->
                     <div class="auth-brand-badge mb-6">
                         <svg class="auth-logo-svg" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -107,7 +107,7 @@ $pageTitle = 'Sign In — OmniDesk AI';
             <!-- ── Right Column: Modern Authentication Card ─────────────── -->
             <section class="auth-form-panel" aria-label="Sign In">
                 <div class="auth-card-container">
-                    
+
                     <div class="auth-card-header">
                         <div class="auth-card-tag">Workspace Access</div>
                         <h2 class="auth-card-title">Sign in to your workspace</h2>
@@ -145,14 +145,14 @@ $pageTitle = 'Sign In — OmniDesk AI';
                                 <span class="auth-input-icon">
                                     <svg viewBox="0 0 20 20" fill="currentColor"><path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" /><path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" /></svg>
                                 </span>
-                                <input 
-                                    type="email" 
-                                    id="email" 
-                                    name="email" 
-                                    class="auth-input-control" 
-                                    placeholder="name@company.com" 
-                                    required 
-                                    autofocus 
+                                <input
+                                    type="email"
+                                    id="email"
+                                    name="email"
+                                    class="auth-input-control"
+                                    placeholder="name@company.com"
+                                    required
+                                    autofocus
                                     autocomplete="email"
                                     spellcheck="false"
                                 >
@@ -169,13 +169,13 @@ $pageTitle = 'Sign In — OmniDesk AI';
                                 <span class="auth-input-icon">
                                     <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd" /></svg>
                                 </span>
-                                <input 
-                                    type="password" 
-                                    id="password" 
-                                    name="password" 
-                                    class="auth-input-control auth-input-password" 
-                                    placeholder="••••••••••••" 
-                                    required 
+                                <input
+                                    type="password"
+                                    id="password"
+                                    name="password"
+                                    class="auth-input-control auth-input-password"
+                                    placeholder="••••••••••••"
+                                    required
                                     autocomplete="current-password"
                                 >
                                 <button type="button" id="togglePasswordBtn" class="auth-password-toggle" aria-label="Toggle password visibility" title="Show/hide password" tabindex="-1">
@@ -209,7 +209,7 @@ $pageTitle = 'Sign In — OmniDesk AI';
                     <!-- Account Registration Link -->
                     <div class="auth-card-footer">
                         <p class="footer-text">
-                            New enterprise workspace? 
+                            New enterprise workspace?
                             <a href="<?= url('/register') ?>" class="footer-link">Register your organization</a>
                         </p>
                         <div class="footer-security-note">

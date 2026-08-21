@@ -1,13 +1,14 @@
-/**
+﻿/**
  * OmniDesk AI — Client-Side Enterprise App Shell & Dashboard (app.js)
  *
- * Vanilla JavaScript handlers:
- *   - Mobile sidebar drawer toggle
+ * Commercial SaaS interactions:
+ *   - Mobile sidebar drawer toggle & auto-collapse
  *   - Workspace switcher dropdown toggle
+ *   - Quick Create dropdown menu
  *   - User profile dropdown toggle
  *   - Notification bell dropdown toggle
  *   - Theme switcher (Light/Dark/System)
- *   - Global Search Modal (Ctrl+K / Cmd+K / ESC)
+ *   - Global Search Modal (Ctrl+K / Cmd+K / ESC) with live filtering
  *   - Quick Actions Modal
  *   - CSRF fetch wrapper
  */
@@ -23,10 +24,10 @@
             this.setupDropdowns();
             this.setupSearchModal();
             this.setupQuickActions();
-            console.log('[OmniDesk AI] Enterprise App Shell & Executive Dashboard initialized.');
+            console.log('[OmniDesk AI] Enterprise B2B SaaS Platform initialized.');
         },
 
-        // ── Theme Switcher ──────────────────────────────────────────────────
+        // ── Theme Switcher (System / Light / Dark) ──────────────────────────
         setupTheme() {
             const savedTheme = localStorage.getItem('omnidesk_theme') || 'system';
             document.documentElement.setAttribute('data-theme', savedTheme);
@@ -67,10 +68,13 @@
             }
         },
 
-        // ── Dropdowns (Workspace, Profile & Notifications) ───────────────────
+        // ── Dropdowns (Workspace, Quick Create, Profile & Notifications) ─────
         setupDropdowns() {
             const wsBtn       = document.getElementById('wsDropdownBtn');
             const wsMenu      = document.getElementById('wsDropdown');
+
+            const quickBtn    = document.getElementById('quickCreateBtn');
+            const quickMenu   = document.getElementById('quickCreateMenu');
 
             const userBtn     = document.getElementById('userMenuBtn');
             const profileMenu = document.getElementById('profileDropdown');
@@ -80,6 +84,7 @@
 
             const closeAll = () => {
                 if (wsMenu) wsMenu.classList.remove('active');
+                if (quickMenu) quickMenu.classList.remove('active');
                 if (profileMenu) profileMenu.classList.remove('active');
                 if (notifMenu) notifMenu.classList.remove('active');
             };
@@ -90,6 +95,15 @@
                     const isAct = wsMenu.classList.contains('active');
                     closeAll();
                     if (!isAct) wsMenu.classList.add('active');
+                });
+            }
+
+            if (quickBtn && quickMenu) {
+                quickBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const isAct = quickMenu.classList.contains('active');
+                    closeAll();
+                    if (!isAct) quickMenu.classList.add('active');
                 });
             }
 
@@ -125,7 +139,10 @@
 
             const open = () => {
                 modal.classList.add('active');
-                if (input) input.focus();
+                if (input) {
+                    input.value = '';
+                    input.focus();
+                }
             };
 
             const close = () => {
@@ -151,6 +168,14 @@
                     close();
                 }
             });
+
+            if (input) {
+                input.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' && input.value.trim().length > 0) {
+                        window.location.href = '/search?q=' + encodeURIComponent(input.value.trim());
+                    }
+                });
+            }
         },
 
         // ── Quick Actions Modal ──────────────────────────────────────────────

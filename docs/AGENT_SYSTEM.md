@@ -1,4 +1,4 @@
-# OmniDesk AI — Specialized Multi-Agent System
+﻿# OmniDesk AI — Specialized Multi-Agent System
 
 OmniDesk AI implements 8 specialized domain agents under `ai/app/agents/`:
 

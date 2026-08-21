@@ -245,12 +245,12 @@ window.OmniDeskAICommand = {
         // Append User Message to UI using textContent
         const userBubble = document.createElement('div');
         userBubble.className = 'flex flex-col items-end';
-        
+
         const userHeader = document.createElement('div');
         userHeader.className = 'flex items-center gap-2 mb-1';
         userHeader.textContent = 'YOU';
         userHeader.className = 'font-bold text-2xs uppercase text-muted mb-1';
-        
+
         const userContent = document.createElement('div');
         userContent.className = 'p-3 rounded-lg text-xs max-w-2xl leading-relaxed bg-brand text-white';
         userContent.style.whiteSpace = 'pre-wrap';
