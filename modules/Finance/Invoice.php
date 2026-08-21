@@ -188,7 +188,7 @@ class Invoice
 
             $db->execute(
                 'INSERT INTO invoices (workspace_id, invoice_number, customer_id, project_id, issue_date, due_date, status, currency, subtotal, discount_amount, tax_amount, total_amount, paid_amount, balance_due, notes, terms, created_by, created_at)
-                 VALUES (:ws, :num, :cid, :pid, :idate, :ddate, :status, :curr, :sub, :disc, :tax, :tot, 0.00, :tot, :notes, :terms, :cby, NOW())',
+                 VALUES (:ws, :num, :cid, :pid, :idate, :ddate, :status, :curr, :sub, :disc, :tax, :tot, 0.00, :bal, :notes, :terms, :cby, NOW())',
                 [
                     'ws'     => $data['workspace_id'],
                     'num'    => $invNum,
@@ -202,6 +202,7 @@ class Invoice
                     'disc'   => $discTotal,
                     'tax'    => $taxTotal,
                     'tot'    => $total,
+                    'bal'    => $total,
                     'notes'  => $data['notes'] ?? null,
                     'terms'  => $data['terms'] ?? 'Net 30 Days',
                     'cby'    => $data['created_by'] ?? null,

@@ -45,7 +45,7 @@ class CommunicationController
         $wsId            = $activeWorkspace['id'];
 
         $channelId = (int)($_POST['channel_id'] ?? 1);
-        $msg       = trim($_POST['message'] ?? '');
+        $msg       = trim($_POST['message'] ?? $_POST['body'] ?? '');
 
         if (!empty($msg)) {
             Message::post([

@@ -103,7 +103,7 @@ class CRMController
         $activeWorkspace = DashboardService::getActiveWorkspace($userId);
         $wsId            = $activeWorkspace['id'];
 
-        $companyName = trim($_POST['company_name'] ?? '');
+        $companyName = trim($_POST['company_name'] ?? $_POST['name'] ?? '');
         if (empty($companyName)) {
             flash('error', 'Company name is required.');
             Security::redirectBack('/crm/customers');
