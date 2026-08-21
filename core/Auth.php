@@ -391,6 +391,14 @@ class Auth
     }
 
     /**
+     * Get all granted permissions for the logged-in user.
+     */
+    public static function permissions(): array
+    {
+        return static::getUserPermissions();
+    }
+
+    /**
      * Load and cache all granted permissions for the logged-in user.
      */
     private static function getUserPermissions(): array
