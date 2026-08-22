@@ -1,0 +1,45 @@
+{
+  "name": "@omnidesk/api",
+  "version": "2.0.0",
+  "private": true,
+  "type": "commonjs",
+  "main": "./dist/server.js",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "prisma:generate": "prisma generate"
+  },
+  "dependencies": {
+    "@omnidesk/config": "*",
+    "@omnidesk/shared-types": "*",
+    "@omnidesk/validation": "*",
+    "@prisma/client": "^5.14.0",
+    "bcrypt": "^5.1.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "express-rate-limit": "^7.3.0",
+    "helmet": "^7.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "pino": "^9.1.2",
+    "pino-pretty": "^11.1.0",
+    "ws": "^8.17.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/bcrypt": "^5.0.2",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/jsonwebtoken": "^9.0.6",
+    "@types/node": "^20.12.12",
+    "@types/supertest": "^6.0.2",
+    "@types/ws": "^8.5.10",
+    "prisma": "^5.14.0",
+    "supertest": "^7.0.0",
+    "tsx": "^4.10.5",
+    "typescript": "^5.4.5",
+    "vitest": "^1.6.0"
+  }
+}

@@ -1,44 +1,23 @@
 # OmniDesk AI — Production .gitignore
 
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Production Builds & Dist
+dist/
+dist-ssr/
+build/
+*.tsbuildinfo
+
 # Environment Configurations & Secrets
 .env
-.env.*
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
 !.env.example
-
-# Temporary Storage & Backups
-storage/logs/*
-!storage/logs/.gitkeep
-storage/backups/*
-!storage/backups/.gitkeep
-storage/cache/*
-!storage/cache/.gitkeep
-storage/app/*
-!storage/app/.gitkeep
-
-# Python Compilation & Virtual Environments
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-env/
-venv/
-ENV/
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
 
 # IDE & Editor Files
 .vscode/
@@ -59,8 +38,11 @@ ehthumbs.db
 Thumbs.db
 [Dd]esktop.ini
 
-# Test Coverage & Temporary Artifacts
-.coverage
-.pytest_cache/
-htmlcov/
+# Test Coverage & Logs
+coverage/
+.vitest/
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
