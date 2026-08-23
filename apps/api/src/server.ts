@@ -1,46 +1,18 @@
 import http from "http";
-import { WebSocketServer, WebSocket } from "ws";
+import { WebSocketServer } from "ws";
 import { createApp } from "./app";
 import { env } from "./config/env";
 import { logger } from "./lib/logger";
 import { connectPrisma, prisma } from "./lib/prisma";
+import { wsManager } from "./lib/websocket";
 
 async function bootstrap(): Promise<void> {
   const app = createApp();
   const server = http.createServer(app);
 
-  // Initialize WebSocket Foundation
+  // Initialize WebSocket Foundation with workspace manager
   const wss = new WebSocketServer({ server, path: "/ws" });
-
-  wss.on("connection", (ws: WebSocket, req: http.IncomingMessage) => {
-    logger.info({ remoteAddress: req.socket.remoteAddress }, "WebSocket client connected");
-
-    // Send initial handshake envelope
-    ws.send(
-      JSON.stringify({
-        event: "system.connected",
-        payload: {
-          message: "OmniDesk AI Realtime Gateway Connected",
-          timestamp: new Date().toISOString(),
-        },
-      })
-    );
-
-    ws.on("message", (data) => {
-      try {
-        const parsed = JSON.parse(data.toString());
-        if (parsed.event === "ping") {
-          ws.send(JSON.stringify({ event: "pong", timestamp: new Date().toISOString() }));
-        }
-      } catch {
-        // Ignore malformed ping/text
-      }
-    });
-
-    ws.on("close", () => {
-      logger.info("WebSocket client disconnected");
-    });
-  });
+  wsManager.init(wss);
 
   // Attempt database connection check (non-blocking if DB not yet up)
   await connectPrisma();

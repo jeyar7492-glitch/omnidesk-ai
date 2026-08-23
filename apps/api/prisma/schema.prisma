@@ -129,6 +129,7 @@ model Workspace {
   notifications   Notification[]
   aiConversations AIConversation[]
   aiApprovals     AIApprovalRequest[]
+  aiExecutions    AIExecution[]
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
 
@@ -593,17 +594,39 @@ model AIApprovalRequest {
   id             String         @id @default(auto()) @map("_id") @db.ObjectId
   workspaceId    String         @db.ObjectId
   workspace      Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  conversationId String?        @db.ObjectId
+  executionId    String?
+  conversationId String?
   actionName     String
   agentKey       String
-  actionHash     String         @unique
+  actionHash     String?
   riskLevel      RiskLevel      @default(HIGH)
   params         Json?
   status         ApprovalStatus @default(PENDING)
-  requestedById  String         @db.ObjectId
-  decidedById    String?        @db.ObjectId
+  requestedById  String
+  decidedById    String?
   decidedAt      DateTime?
+  decisionReason String?
   createdAt      DateTime       @default(now())
 
   @@index([workspaceId, status])
+  @@index([workspaceId, executionId])
+}
+
+model AIExecution {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  workspaceId   String    @db.ObjectId
+  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  userId        String
+  agentId       String
+  prompt        String
+  status        String    @default("PENDING")
+  steps         Json?
+  finalResponse String?
+  error         String?
+  durationMs    Int?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([workspaceId, status])
+  @@index([workspaceId, createdAt])
 }

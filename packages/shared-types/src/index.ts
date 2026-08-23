@@ -1,6 +1,6 @@
 /**
  * @omnidesk/shared-types
- * Core TypeScript contracts and data transfer objects for OmniDesk AI.
+ * Core TypeScript contracts, enums, and data transfer objects for OmniDesk AI.
  */
 
 // ── Standard API Response Envelope ──────────────────────────────────────────
@@ -68,4 +68,135 @@ export interface WorkspaceSummary {
   name: string;
   slug: string;
   role: SystemRole;
+}
+
+// ── Agentic AI Foundation Contracts ─────────────────────────────────────────
+
+export type RiskLevel = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+
+export type ApprovalStatus = "PENDING" | "APPROVED" | "REJECTED" | "EXPIRED" | "EXECUTED";
+
+export type AIExecutionStatus =
+  | "PENDING"
+  | "PLANNING"
+  | "EXECUTING_TOOL"
+  | "WAITING_APPROVAL"
+  | "COMPLETED"
+  | "FAILED"
+  | "TIMED_OUT";
+
+export type AIEventType =
+  | "ai:request_started"
+  | "ai:planning"
+  | "ai:tool_proposed"
+  | "ai:approval_requested"
+  | "ai:approval_decided"
+  | "ai:tool_started"
+  | "ai:tool_completed"
+  | "ai:execution_completed"
+  | "ai:execution_failed";
+
+export interface AgentExecutionContext {
+  workspaceId: string;
+  userId: string;
+  userRole: SystemRole;
+  userPermissions: string[];
+  requestId: string;
+}
+
+export interface AgentContract {
+  id: string;
+  name: string;
+  description: string;
+  capabilities: string[];
+  allowedTools: string[];
+  systemInstructions: string;
+  riskPolicy: RiskLevel;
+  maxExecutionSteps: number;
+  timeoutMs: number;
+}
+
+export interface ToolParameterSchema {
+  type: string;
+  description?: string;
+  properties?: Record<string, unknown>;
+  required?: string[];
+}
+
+export interface ToolDefinition {
+  id: string;
+  name: string;
+  description: string;
+  parameters: ToolParameterSchema;
+  requiredPermissions: string[];
+  riskLevel: RiskLevel;
+  workspaceScoped: boolean;
+}
+
+export interface ToolCallProposal {
+  toolId: string;
+  arguments: Record<string, unknown>;
+  reason: string;
+  riskLevel: RiskLevel;
+  requiresApproval: boolean;
+}
+
+export interface ToolExecutionResult {
+  toolId: string;
+  success: boolean;
+  result?: unknown;
+  error?: string;
+  durationMs: number;
+  executedAt: string;
+}
+
+export interface AIExecutionStep {
+  stepNumber: number;
+  thought?: string;
+  toolCall?: ToolCallProposal;
+  toolResult?: ToolExecutionResult;
+  approvalId?: string;
+  status: "PLANNING" | "EXECUTING" | "APPROVED" | "REJECTED" | "COMPLETED" | "FAILED";
+  timestamp: string;
+}
+
+export interface AIExecutionRecord {
+  id: string;
+  workspaceId: string;
+  userId: string;
+  agentId: string;
+  prompt: string;
+  status: AIExecutionStatus;
+  steps: AIExecutionStep[];
+  finalResponse?: string;
+  error?: string;
+  totalDurationMs?: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AIApprovalRequest {
+  id: string;
+  workspaceId: string;
+  executionId: string;
+  agentId: string;
+  toolId: string;
+  proposedArguments: Record<string, unknown>;
+  riskLevel: RiskLevel;
+  status: ApprovalStatus;
+  requestedById: string;
+  createdAt: string;
+  expiresAt: string;
+  decidedById?: string;
+  decidedAt?: string;
+  decisionReason?: string;
+}
+
+export interface AIEventPayload<T = unknown> {
+  eventId: string;
+  workspaceId: string;
+  executionId: string;
+  type: AIEventType;
+  timestamp: string;
+  data: T;
 }
