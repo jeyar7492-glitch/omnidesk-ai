@@ -16,81 +16,40 @@ concurrency:
 
 jobs:
   validate:
-    name: Production Pre-Flight & Regression Suite
+    name: Monorepo Typecheck, Build & Automated Tests
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Set up PHP 8.2
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: '8.2'
-          extensions: mbstring, pdo, pdo_mysql, ctype, json, openssl, gd, curl, bcmath
-          coverage: none
-          tools: none
-
-      - name: Set up Python 3.12
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-          cache: 'pip'
-
       - name: Set up Node.js 20
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: 'npm'
 
-      - name: Install Python Dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r ai/requirements.txt
+      - name: Install Monorepo Dependencies
+        run: npm ci || npm install
 
-      - name: 1. PHP Syntax & Linting (php -l)
-        run: |
-          echo "::group::PHP Syntax Linting"
-          find . -type f -name "*.php" ! -path "./vendor/*" ! -path "./.git/*" ! -path "./storage/cache/*" -print0 | xargs -0 -n 1 -P 4 php -l
-          echo "::endgroup::"
+      - name: 1. Generate Prisma Client
+        run: npm --workspace=@omnidesk/api run prisma:generate
 
-      - name: 2. Python Compilation (py_compile)
-        run: |
-          echo "::group::Python Compilation Check"
-          python -m py_compile $(find ai tests -name "*.py")
-          echo "All Python source files compiled successfully."
-          echo "::endgroup::"
+      - name: 2. Typecheck All Packages & Apps
+        run: npm run typecheck
 
-      - name: 3. Frontend Asset & Syntax Validation
-        run: |
-          echo "::group::Frontend Asset Integrity & JS Validation"
-          test -f public/index.php
-          test -f public/.htaccess
-          test -f public/assets/css/variables.css
-          test -f public/assets/css/base.css
-          test -f public/assets/css/components.css
-          test -f public/assets/js/app.js
-          node -c public/assets/js/app.js
-          echo "All required frontend assets present and JS syntax validated."
-          echo "::endgroup::"
+      - name: 3. Production Build Verification
+        run: npm run build
 
-      - name: 4. Security & Secret Leak Prevention
+      - name: 4. Automated Test Suites
+        run: npm test
+
+      - name: 5. Security & Secret Leak Prevention
         run: |
           echo "::group::Security & Untracked Secret Auditing"
-          # Ensure .env or credential keys are never tracked
           if git ls-files | grep -E '^(\.env(\..+)?|.*\.pem|.*\.key|.*\.pfx|id_rsa.*)$' | grep -v '\.env\.example'; then
             echo "::error::Sensitive credential or environment files found tracked in git!"
             exit 1
           fi
           echo "No sensitive credential files tracked."
           echo "::endgroup::"
-
-      - name: 5. Execute Portable Test Suites
-        run: |
-          echo "::group::Automated Financial Integrity & Reliability Suites"
-          python tests/test_financial_integrity.py
-          python tests/test_reliability.py
-          echo "::endgroup::"
-
-      - name: 6. Comprehensive CI Validator & Summary Generator
-        run: |
-          python tests/validate_ci.py
