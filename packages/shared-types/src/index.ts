@@ -402,3 +402,14 @@ export interface AIEventPayload<T = unknown> {
   timestamp: string;
   data: T;
 }
+
+// ── Aliases ────────────────────────────────────────────────────────────────
+export type AIExecutionResponse = AIExecutionRecord & {
+  approvalRequest?: AIApprovalRequest;
+};
+export type AIExecutionSummary = AIExecutionRecord;
+export type AIApprovalRequestSummary = AIApprovalRequest;
+export type CRMLeadSummary = LeadSummary;
+export type CRMDealSummary = DealSummary;
+export type CRMCustomerSummary = CustomerSummary;
+
