@@ -114,7 +114,10 @@ model Workspace {
   description     String?
   members         WorkspaceMember[]
   customers       Customer[]
+  contacts        Contact[]
   leads           Lead[]
+  deals           Deal[]
+  activities      CRMActivity[]
   projects        Project[]
   boards          Board[]
   tasks           Task[]
@@ -150,9 +153,9 @@ model WorkspaceMember {
 }
 
 model Customer {
-  id             String     @id @default(auto()) @map("_id") @db.ObjectId
-  workspaceId    String     @db.ObjectId
-  workspace      Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  id             String        @id @default(auto()) @map("_id") @db.ObjectId
+  workspaceId    String        @db.ObjectId
+  workspace      Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   companyName    String
   contactPerson  String?
   email          String?
@@ -163,15 +166,39 @@ model Customer {
   city           String?
   state          String?
   country        String?
-  status         String     @default("active")
-  assignedUserId String?    @db.ObjectId
+  status         String        @default("active")
+  assignedUserId String?       @db.ObjectId
+  contacts       Contact[]
   leads          Lead[]
+  deals          Deal[]
   projects       Project[]
   invoices       Invoice[]
-  createdAt      DateTime   @default(now())
-  updatedAt      DateTime   @updatedAt
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 
   @@index([workspaceId, companyName])
+}
+
+model Contact {
+  id          String        @id @default(auto()) @map("_id") @db.ObjectId
+  workspaceId String        @db.ObjectId
+  workspace   Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  customerId  String?       @db.ObjectId
+  customer    Customer?     @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  firstName   String
+  lastName    String
+  email       String?
+  phone       String?
+  jobTitle    String?
+  department  String?
+  isPrimary   Boolean       @default(false)
+  notes       String?
+  deals       Deal[]
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([workspaceId, email])
+  @@index([workspaceId, customerId])
 }
 
 model Lead {
@@ -191,10 +218,59 @@ model Lead {
   nextActionDate DateTime?
   notes          String?
   lostReason     String?
+  deals          Deal[]
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 
   @@index([workspaceId, stage])
+}
+
+model Deal {
+  id             String        @id @default(auto()) @map("_id") @db.ObjectId
+  workspaceId    String        @db.ObjectId
+  workspace      Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  customerId     String?       @db.ObjectId
+  customer       Customer?     @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  contactId      String?       @db.ObjectId
+  contact        Contact?      @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  leadId         String?       @db.ObjectId
+  lead           Lead?         @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  title          String
+  stage          DealStage     @default(QUALIFICATION)
+  dealValue      Float         @default(0.0)
+  probability    Int           @default(20)
+  expectedClose  DateTime?
+  closedAt       DateTime?
+  priority       PriorityLevel @default(MEDIUM)
+  assignedUserId String?       @db.ObjectId
+  lostReason     String?
+  notes          String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@index([workspaceId, stage])
+  @@index([workspaceId, expectedClose])
+  @@index([workspaceId, assignedUserId])
+}
+
+model CRMActivity {
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  workspaceId String    @db.ObjectId
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  entityType  String    // "lead" | "deal" | "customer" | "contact"
+  entityId    String    @db.ObjectId
+  type        String    @default("note") // "note" | "call" | "meeting" | "email" | "follow_up"
+  title       String
+  content     String?
+  dueDate     DateTime?
+  isCompleted Boolean   @default(false)
+  completedAt DateTime?
+  userId      String?   @db.ObjectId
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([workspaceId, entityType, entityId])
+  @@index([workspaceId, dueDate])
 }
 
 model Project {

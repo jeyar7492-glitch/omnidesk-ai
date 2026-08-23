@@ -56,6 +56,16 @@ export interface RealtimeEventEnvelope<T = unknown> {
 // ── System Roles & Tenancy (Foundational) ────────────────────────────────────
 export type SystemRole = "OWNER" | "ADMIN" | "MANAGER" | "MEMBER" | "VIEWER" | "FINANCE";
 
+export type DealStage =
+  | "QUALIFICATION"
+  | "CONTACTED"
+  | "PROPOSAL"
+  | "NEGOTIATION"
+  | "WON"
+  | "LOST";
+
+export type PriorityLevel = "LOW" | "MEDIUM" | "HIGH" | "URGENT";
+
 export interface UserSummary {
   id: string;
   email: string;
@@ -68,6 +78,61 @@ export interface WorkspaceSummary {
   name: string;
   slug: string;
   role: SystemRole;
+}
+
+// ── CRM Domain Contracts ───────────────────────────────────────────────────
+export interface LeadSummary {
+  id: string;
+  title: string;
+  stage: DealStage;
+  dealValue: number;
+  probability: number;
+  priority: PriorityLevel;
+  customerName?: string;
+  expectedClose?: string;
+  createdAt: string;
+}
+
+export interface CustomerSummary {
+  id: string;
+  companyName: string;
+  contactPerson?: string;
+  email?: string;
+  phone?: string;
+  industry?: string;
+  status: string;
+  createdAt: string;
+}
+
+export interface ContactSummary {
+  id: string;
+  name: string;
+  email?: string;
+  phone?: string;
+  jobTitle?: string;
+  customerName?: string;
+  isPrimary: boolean;
+}
+
+export interface DealSummary {
+  id: string;
+  title: string;
+  stage: DealStage;
+  dealValue: number;
+  probability: number;
+  expectedClose?: string;
+  closedAt?: string;
+  priority: PriorityLevel;
+  customerName?: string;
+}
+
+export interface PipelineSummary {
+  totalDeals: number;
+  totalActivePipelineValue: number;
+  totalWeightedPipelineValue: number;
+  totalWonValue: number;
+  totalLostValue: number;
+  stageBreakdown: Record<DealStage, { count: number; totalValue: number; weightedValue: number }>;
 }
 
 // ── Agentic AI Foundation Contracts ─────────────────────────────────────────
