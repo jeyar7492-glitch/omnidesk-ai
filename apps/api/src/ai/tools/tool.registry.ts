@@ -3,6 +3,8 @@ import { IAITool } from "./tool.interface";
 import { SystemPingTool } from "./built-in/system_ping.tool";
 import { WorkspaceInfoTool } from "./built-in/workspace_info.tool";
 import { SystemMaintenanceTool } from "./built-in/system_maintenance.tool";
+
+// Task AI Tools
 import { TaskFindTool } from "./task/task_find.tool";
 import { TaskGetTool } from "./task/task_get.tool";
 import { TaskCreateTool } from "./task/task_create.tool";
@@ -11,6 +13,30 @@ import { TaskMoveTool } from "./task/task_move.tool";
 import { TaskAssignTool } from "./task/task_assign.tool";
 import { TaskCommentTool } from "./task/task_comment.tool";
 import { TaskListOverdueTool } from "./task/task_list_overdue.tool";
+import { TaskChecklistCreateTool } from "./task/task_checklist_create.tool";
+import { TaskChecklistUpdateTool } from "./task/task_checklist_update.tool";
+import { TaskDependencyCreateTool } from "./task/task_dependency_create.tool";
+import { TaskDependencyRemoveTool } from "./task/task_dependency_remove.tool";
+import { TaskBlockersTool } from "./task/task_blockers.tool";
+
+// Milestone AI Tools
+import { MilestoneCreateTool } from "./task/milestone_create.tool";
+import { MilestoneFindTool } from "./task/milestone_find.tool";
+import { MilestoneGetTool } from "./task/milestone_get.tool";
+import { MilestoneUpdateTool } from "./task/milestone_update.tool";
+import { MilestoneCompleteTool } from "./task/milestone_complete.tool";
+import { MilestoneOverdueTool } from "./task/milestone_overdue.tool";
+
+// Project AI Tools
+import { ProjectCreateTool } from "./projects/project_create.tool";
+import { ProjectFindTool } from "./projects/project_find.tool";
+import { ProjectGetTool } from "./projects/project_get.tool";
+import { ProjectUpdateTool } from "./projects/project_update.tool";
+import { ProjectAssignTool } from "./projects/project_assign.tool";
+import { ProjectArchiveTool } from "./projects/project_archive.tool";
+import { ProjectHealthTool } from "./projects/project_health.tool";
+import { ProjectProgressTool } from "./projects/project_progress.tool";
+import { TeamWorkloadTool } from "./projects/team_workload.tool";
 
 // CRM AI Tools
 import { LeadCreateTool } from "./crm/lead_create.tool";
@@ -73,6 +99,30 @@ export class ToolRegistry {
     this.registerTool(new TaskAssignTool());
     this.registerTool(new TaskCommentTool());
     this.registerTool(new TaskListOverdueTool());
+    this.registerTool(new TaskChecklistCreateTool());
+    this.registerTool(new TaskChecklistUpdateTool());
+    this.registerTool(new TaskDependencyCreateTool());
+    this.registerTool(new TaskDependencyRemoveTool());
+    this.registerTool(new TaskBlockersTool());
+
+    // Milestone Tools
+    this.registerTool(new MilestoneCreateTool());
+    this.registerTool(new MilestoneFindTool());
+    this.registerTool(new MilestoneGetTool());
+    this.registerTool(new MilestoneUpdateTool());
+    this.registerTool(new MilestoneCompleteTool());
+    this.registerTool(new MilestoneOverdueTool());
+
+    // Project Management Tools
+    this.registerTool(new ProjectCreateTool());
+    this.registerTool(new ProjectFindTool());
+    this.registerTool(new ProjectGetTool());
+    this.registerTool(new ProjectUpdateTool());
+    this.registerTool(new ProjectAssignTool());
+    this.registerTool(new ProjectArchiveTool());
+    this.registerTool(new ProjectHealthTool());
+    this.registerTool(new ProjectProgressTool());
+    this.registerTool(new TeamWorkloadTool());
 
     // CRM / Sales Production Tools
     this.registerTool(new LeadCreateTool());
@@ -119,10 +169,19 @@ export class ToolRegistry {
   }
 
   public listTools(allowedToolIds?: string[]): ToolDefinition[] {
-    const list: ToolDefinition[] = [];
-    for (const [id, tool] of this.tools.entries()) {
-      if (!allowedToolIds || allowedToolIds.includes(id)) {
-        list.push({
+    if (!allowedToolIds) {
+      return this.getAllDefinitions();
+    }
+    return this.getToolsForAgent(allowedToolIds);
+  }
+
+  public getToolsForAgent(allowedToolIds: string[]): ToolDefinition[] {
+    const definitions: ToolDefinition[] = [];
+
+    for (const toolId of allowedToolIds) {
+      const tool = this.tools.get(toolId);
+      if (tool) {
+        definitions.push({
           id: tool.id,
           name: tool.name,
           description: tool.description,
@@ -133,8 +192,22 @@ export class ToolRegistry {
         });
       }
     }
-    return list;
+
+    return definitions;
+  }
+
+  public getAllDefinitions(): ToolDefinition[] {
+    return Array.from(this.tools.values()).map((tool) => ({
+      id: tool.id,
+      name: tool.name,
+      description: tool.description,
+      parameters: tool.parameters,
+      requiredPermissions: tool.requiredPermissions,
+      riskLevel: tool.riskLevel,
+      workspaceScoped: tool.workspaceScoped,
+    }));
   }
 }
 
 export const toolRegistry = ToolRegistry.getInstance();
+

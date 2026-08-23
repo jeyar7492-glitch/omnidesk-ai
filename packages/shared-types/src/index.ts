@@ -135,6 +135,143 @@ export interface PipelineSummary {
   stageBreakdown: Record<DealStage, { count: number; totalValue: number; weightedValue: number }>;
 }
 
+export type ProjectStatus = "PLANNING" | "ACTIVE" | "ON_HOLD" | "COMPLETED" | "CANCELLED";
+
+export type TaskWorkflowStage = "backlog" | "todo" | "in_progress" | "review" | "testing" | "done";
+
+export interface ProjectSummary {
+  id: string;
+  name: string;
+  description?: string;
+  status: ProjectStatus;
+  health: string;
+  budget: number;
+  spent: number;
+  startDate?: string;
+  deadline?: string;
+  managerName?: string;
+  managerId?: string;
+  customerName?: string;
+  customerId?: string;
+  isArchived: boolean;
+  progressPercentage: number;
+  totalTasks: number;
+  completedTasks: number;
+  createdAt: string;
+}
+
+export interface TaskChecklistSummary {
+  id: string;
+  title: string;
+  isCompleted: boolean;
+  position: number;
+}
+
+export interface TaskCommentSummary {
+  id: string;
+  userId: string;
+  userName: string;
+  content: string;
+  createdAt: string;
+}
+
+export interface TaskSummary {
+  id: string;
+  title: string;
+  description?: string;
+  status: string;
+  priority: PriorityLevel;
+  position: number;
+  assigneeName?: string;
+  assigneeId?: string;
+  reporterName?: string;
+  reporterId?: string;
+  projectName?: string;
+  projectId?: string;
+  milestoneTitle?: string;
+  milestoneId?: string;
+  startDate?: string;
+  dueDate?: string;
+  estimatedHours?: number;
+  actualHours?: number;
+  isBlocked: boolean;
+  blockedReason?: string;
+  dependencies: string[];
+  isArchived: boolean;
+  completedAt?: string;
+  checklists: TaskChecklistSummary[];
+  checklistCount: number;
+  completedChecklistCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MilestoneSummary {
+  id: string;
+  title: string;
+  description?: string;
+  projectId: string;
+  projectName?: string;
+  status: string;
+  dueDate?: string;
+  progress: number;
+  totalTasks: number;
+  completedTasks: number;
+  completedAt?: string;
+  createdAt: string;
+}
+
+export interface ProjectHealthMetrics {
+  projectId: string;
+  projectName: string;
+  status: ProjectStatus;
+  overallHealth: "healthy" | "at_risk" | "critical" | "delayed";
+  healthScore: number;
+  completionRate: number;
+  totalBudget: number;
+  totalSpent: number;
+  budgetBurnPercentage: number;
+  totalTasks: number;
+  completedTasks: number;
+  overdueTasksCount: number;
+  blockedTasksCount: number;
+  totalMilestones: number;
+  completedMilestones: number;
+  atRiskReasons: string[];
+}
+
+export interface TeamMemberWorkload {
+  userId: string;
+  name: string;
+  email: string;
+  role: string;
+  totalTasks: number;
+  inProgressTasks: number;
+  todoTasks: number;
+  reviewTasks: number;
+  completedTasks: number;
+  overdueTasks: number;
+  estimatedHoursTotal: number;
+  tasks: Array<{ id: string; title: string; status: string; priority: PriorityLevel; dueDate?: string; isOverdue: boolean }>;
+}
+
+export interface TeamWorkloadSummary {
+  workspaceId: string;
+  totalActiveTasks: number;
+  totalOverdueTasks: number;
+  members: TeamMemberWorkload[];
+}
+
+export interface BlockedTaskSummary {
+  id: string;
+  title: string;
+  status: string;
+  projectName?: string;
+  assigneeName?: string;
+  blockedReason?: string;
+  unresolvedDependencies: Array<{ id: string; title: string; status: string; assigneeName?: string }>;
+}
+
 // ── Agentic AI Foundation Contracts ─────────────────────────────────────────
 
 export type RiskLevel = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";

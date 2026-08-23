@@ -166,3 +166,97 @@ export const CreateCRMActivitySchema = z.object({
   content: z.string().max(4000).optional(),
   dueDate: z.string().datetime().optional(),
 });
+
+// ── Project Management Validation Schemas ────────────────────────────────────
+
+export const ProjectStatusSchema = z.enum(["PLANNING", "ACTIVE", "ON_HOLD", "COMPLETED", "CANCELLED"]);
+
+export const TaskWorkflowStageSchema = z.enum(["backlog", "todo", "in_progress", "review", "testing", "done"]);
+
+export const CreateProjectSchema = z.object({
+  name: z.string().min(1, "Project name is required").max(200),
+  description: z.string().max(4000).optional(),
+  status: ProjectStatusSchema.optional().default("PLANNING"),
+  budget: z.number().nonnegative("Budget must be non-negative").optional().default(0),
+  spent: z.number().nonnegative().optional().default(0),
+  startDate: z.string().datetime().optional(),
+  deadline: z.string().datetime().optional(),
+  managerId: z.string().optional(),
+  customerId: z.string().optional(),
+  health: z.string().optional().default("healthy"),
+});
+
+export const UpdateProjectSchema = CreateProjectSchema.partial();
+
+export const ArchiveProjectSchema = z.object({
+  reason: z.string().max(500).optional(),
+});
+
+export const CreateMilestoneSchema = z.object({
+  projectId: z.string().min(1, "Project ID is required"),
+  title: z.string().min(1, "Milestone title is required").max(200),
+  description: z.string().max(2000).optional(),
+  dueDate: z.string().datetime().optional(),
+  status: z.string().optional().default("pending"),
+  assignedUserId: z.string().optional(),
+});
+
+export const UpdateMilestoneSchema = z.object({
+  title: z.string().min(1).max(200).optional(),
+  description: z.string().max(2000).optional(),
+  dueDate: z.string().datetime().optional(),
+  status: z.string().optional(),
+  assignedUserId: z.string().optional(),
+});
+
+export const CompleteMilestoneSchema = z.object({
+  notes: z.string().max(1000).optional(),
+});
+
+export const CreateTaskSchema = z.object({
+  title: z.string().min(1, "Task title is required").max(200),
+  description: z.string().max(4000).optional(),
+  projectId: z.string().optional(),
+  milestoneId: z.string().optional(),
+  boardId: z.string().optional(),
+  columnId: z.string().optional(),
+  status: TaskWorkflowStageSchema.optional().default("todo"),
+  priority: PriorityLevelSchema.optional().default("MEDIUM"),
+  assigneeId: z.string().optional(),
+  startDate: z.string().datetime().optional(),
+  dueDate: z.string().datetime().optional(),
+  estimatedHours: z.number().nonnegative().optional(),
+  actualHours: z.number().nonnegative().optional(),
+  labels: z.array(z.string()).optional().default([]),
+  dependencies: z.array(z.string()).optional().default([]),
+});
+
+export const UpdateTaskSchema = CreateTaskSchema.partial();
+
+export const MoveTaskSchema = z.object({
+  targetStatus: TaskWorkflowStageSchema,
+  reason: z.string().max(500).optional(),
+});
+
+export const AssignTaskSchema = z.object({
+  assigneeId: z.string().optional(),
+  assigneeNameOrEmail: z.string().optional(),
+});
+
+export const CreateTaskChecklistSchema = z.object({
+  items: z.array(z.string().min(1, "Checklist item title required").max(300)).min(1, "At least one checklist item is required"),
+});
+
+export const UpdateTaskChecklistSchema = z.object({
+  isCompleted: z.boolean(),
+  title: z.string().min(1).max(300).optional(),
+});
+
+export const CreateTaskDependencySchema = z.object({
+  dependsOnTaskId: z.string().min(1, "Dependency task ID is required"),
+});
+
+export const CreateTaskCommentSchema = z.object({
+  content: z.string().min(1, "Comment content is required").max(4000),
+});
+

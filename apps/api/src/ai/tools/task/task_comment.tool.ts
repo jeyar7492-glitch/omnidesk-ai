@@ -1,28 +1,27 @@
 import { z } from "zod";
 import { AgentExecutionContext, RiskLevel } from "@omnidesk/shared-types";
 import { IAITool } from "../tool.interface";
-import { prisma } from "../../../lib/prisma";
-import { wsManager } from "../../../lib/websocket";
-import { NotFoundError } from "../../../lib/errors";
+import { taskService } from "../../../tasks/services/task.service";
 
 const TaskCommentInputSchema = z.object({
   taskId: z.string().min(1, "Task ID is required"),
-  content: z.string().min(1, "Comment content cannot be empty").max(2000),
+  content: z.string().min(1, "Comment content is required").max(4000),
 });
 
 export class TaskCommentTool implements IAITool<z.infer<typeof TaskCommentInputSchema>, any> {
   public readonly id = "task_comment";
   public readonly name = "Add Task Comment";
-  public readonly description = "Adds a discussion comment or status update to an existing task in the workspace.";
+  public readonly description =
+    "Appends an activity comment or status note to a task in the authenticated workspace.";
   public readonly parameters = {
     type: "object",
     properties: {
-      taskId: { type: "string", description: "Unique task ID" },
-      content: { type: "string", description: "Comment message text" },
+      taskId: { type: "string", description: "Target task ID" },
+      content: { type: "string", description: "Comment body or update note" },
     },
     required: ["taskId", "content"],
   };
-  public readonly requiredPermissions: string[] = ["task:write", "task:read"];
+  public readonly requiredPermissions: string[] = ["task:write", "comment:write"];
   public readonly riskLevel: RiskLevel = "LOW";
   public readonly workspaceScoped = true;
   public readonly schema = TaskCommentInputSchema;
@@ -31,48 +30,17 @@ export class TaskCommentTool implements IAITool<z.infer<typeof TaskCommentInputS
     params: z.infer<typeof TaskCommentInputSchema>,
     context: AgentExecutionContext
   ): Promise<any> {
-    const task = await prisma.task.findUnique({
-      where: { id: params.taskId },
-    });
-
-    if (!task || task.workspaceId !== context.workspaceId) {
-      throw new NotFoundError(`Task '${params.taskId}' not found in workspace`);
-    }
-
-    // Lookup user author or fallback gracefully
-    let authorName = "Team Member";
-    try {
-      const user = await prisma.user.findUnique({
-        where: { id: context.userId },
-        select: { firstName: true, lastName: true },
-      });
-      if (user) {
-        authorName = `${user.firstName} ${user.lastName}`;
-      }
-    } catch {
-      // Graceful fallback
-    }
-
-    const comment = await prisma.taskComment.create({
-      data: {
-        taskId: params.taskId,
-        userId: context.userId,
-        content: params.content.trim(),
-      },
-    });
-
-    wsManager.broadcastToWorkspace(context.workspaceId, "task:commented", {
-      taskId: params.taskId,
-      commentId: comment.id,
-      author: authorName,
-      content: comment.content,
-      createdAt: comment.createdAt.toISOString(),
-    });
+    const comment = await taskService.addComment(
+      context.workspaceId,
+      params.taskId,
+      context.userId,
+      params.content
+    );
 
     return {
       commentId: comment.id,
       taskId: comment.taskId,
-      author: authorName,
+      author: `${comment.user.firstName} ${comment.user.lastName}`,
       content: comment.content,
       createdAt: comment.createdAt.toISOString(),
     };

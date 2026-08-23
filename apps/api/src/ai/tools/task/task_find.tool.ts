@@ -1,37 +1,41 @@
 import { z } from "zod";
 import { AgentExecutionContext, RiskLevel } from "@omnidesk/shared-types";
 import { IAITool } from "../tool.interface";
-import { prisma } from "../../../lib/prisma";
+import { taskService } from "../../../tasks/services/task.service";
 
 const PriorityLevelSchema = z.enum(["LOW", "MEDIUM", "HIGH", "URGENT"]);
 
 const TaskFindInputSchema = z.object({
-  query: z.string().optional().describe("Free-text search query across title and description"),
-  status: z.string().optional().describe("Filter by task status e.g. todo, in_progress, review, done"),
-  priority: PriorityLevelSchema.optional().describe("Filter by priority level"),
+  query: z.string().optional().describe("Search keyword in task title or description"),
+  status: z.string().optional().describe("Filter by status (todo, in_progress, review, testing, done, backlog)"),
+  priority: PriorityLevelSchema.optional().describe("Filter by priority"),
+  projectId: z.string().optional().describe("Filter by project ID"),
+  milestoneId: z.string().optional().describe("Filter by milestone ID"),
   assigneeId: z.string().optional().describe("Filter by assignee user ID"),
-  isOverdue: z.boolean().optional().describe("Filter for tasks past due date"),
-  limit: z.number().int().min(1).max(50).optional().default(20),
+  isBlocked: z.boolean().optional().describe("Filter only blocked tasks"),
+  isOverdue: z.boolean().optional().describe("Filter only overdue tasks"),
+  limit: z.number().int().positive().optional().default(20),
 });
 
-export class TaskFindTool implements IAITool<z.infer<typeof TaskFindInputSchema>, { count: number; tasks: any[] }> {
+export class TaskFindTool implements IAITool<z.infer<typeof TaskFindInputSchema>, any> {
   public readonly id = "task_find";
   public readonly name = "Find Tasks";
   public readonly description =
-    "Searches and retrieves real tasks from the workspace database by text query, status, priority, assignee, or overdue condition.";
+    "Searches and filters tasks in the authenticated workspace by title, status, project, assignee, blockers, or due date.";
   public readonly parameters = {
     type: "object",
     properties: {
-      query: { type: "string", description: "Search query for task title or description" },
-      status: { type: "string", description: "Task status (todo, in_progress, review, done)" },
-      priority: { type: "string", enum: ["LOW", "MEDIUM", "HIGH", "URGENT"], description: "Task priority" },
-      assigneeId: { type: "string", description: "Assignee user ObjectId" },
-      isOverdue: { type: "boolean", description: "Whether to return only overdue tasks" },
-      limit: { type: "number", description: "Max tasks to return (default 20)" },
+      query: { type: "string", description: "Search query string" },
+      status: { type: "string", description: "Status filter (todo, in_progress, review, testing, done, backlog)" },
+      priority: { type: "string", enum: ["LOW", "MEDIUM", "HIGH", "URGENT"], description: "Priority filter" },
+      projectId: { type: "string", description: "Filter by project ID" },
+      assigneeId: { type: "string", description: "Filter by assignee user ID" },
+      isBlocked: { type: "boolean", description: "Filter blocked tasks" },
+      isOverdue: { type: "boolean", description: "Filter overdue tasks" },
+      limit: { type: "number", description: "Maximum tasks to return" },
     },
-    required: [],
   };
-  public readonly requiredPermissions: string[] = ["task:read", "workspace:read"];
+  public readonly requiredPermissions: string[] = ["task:read"];
   public readonly riskLevel: RiskLevel = "LOW";
   public readonly workspaceScoped = true;
   public readonly schema = TaskFindInputSchema;
@@ -39,60 +43,22 @@ export class TaskFindTool implements IAITool<z.infer<typeof TaskFindInputSchema>
   public async execute(
     params: z.infer<typeof TaskFindInputSchema>,
     context: AgentExecutionContext
-  ): Promise<{ count: number; tasks: any[] }> {
-    const where: any = {
-      workspaceId: context.workspaceId,
-      isArchived: false,
-    };
-
-    if (params.status) {
-      where.status = params.status.toLowerCase();
-    }
-
-    if (params.priority) {
-      where.priority = params.priority;
-    }
-
-    if (params.assigneeId) {
-      where.assigneeId = params.assigneeId;
-    }
-
-    if (params.isOverdue) {
-      where.dueDate = { lt: new Date() };
-      where.status = { not: "done" };
-    }
-
-    if (params.query && params.query.trim()) {
-      where.OR = [
-        { title: { contains: params.query.trim(), mode: "insensitive" } },
-        { description: { contains: params.query.trim(), mode: "insensitive" } },
-      ];
-    }
-
-    const tasks = await prisma.task.findMany({
-      where,
-      take: params.limit || 20,
-      orderBy: [{ priority: "desc" }, { createdAt: "desc" }],
-      include: {
-        assignee: {
-          select: { id: true, firstName: true, lastName: true, email: true },
-        },
-      },
+  ): Promise<any> {
+    const tasks = await taskService.findTasks(context.workspaceId, {
+      query: params.query,
+      status: params.status,
+      priority: params.priority,
+      projectId: params.projectId,
+      milestoneId: params.milestoneId,
+      assigneeId: params.assigneeId,
+      isBlocked: params.isBlocked,
+      isOverdue: params.isOverdue,
+      limit: params.limit,
     });
 
     return {
       count: tasks.length,
-      tasks: tasks.map((t) => ({
-        id: t.id,
-        title: t.title,
-        status: t.status,
-        priority: t.priority,
-        dueDate: t.dueDate?.toISOString(),
-        assignee: t.assignee
-          ? `${t.assignee.firstName} ${t.assignee.lastName} (${t.assignee.email})`
-          : "Unassigned",
-        createdAt: t.createdAt.toISOString(),
-      })),
+      tasks,
     };
   }
 }

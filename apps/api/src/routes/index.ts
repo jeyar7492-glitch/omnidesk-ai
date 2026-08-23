@@ -2,6 +2,9 @@ import { Router } from "express";
 import { healthRouter } from "./health.router";
 import { createAIRouter } from "../ai/routes/ai.router";
 import { crmRouter } from "../crm/routes/crm.router";
+import { projectsRouter } from "../projects/routes/projects.router";
+import { milestonesRouter } from "../projects/routes/milestones.router";
+import { tasksRouter } from "../tasks/routes/tasks.router";
 
 export const v1Router = Router();
 
@@ -9,3 +12,6 @@ export const v1Router = Router();
 v1Router.use("/health", healthRouter);
 v1Router.use("/ai", createAIRouter());
 v1Router.use("/crm", crmRouter);
+v1Router.use("/projects", projectsRouter);
+v1Router.use("/milestones", milestonesRouter);
+v1Router.use("/tasks", tasksRouter);

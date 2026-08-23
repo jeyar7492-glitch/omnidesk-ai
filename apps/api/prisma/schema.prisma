@@ -76,6 +76,7 @@ model User {
   memberships      WorkspaceMember[]
   createdTasks     Task[]            @relation("TaskReporter")
   assignedTasks    Task[]            @relation("TaskAssignee")
+  managedProjects  Project[]         @relation("ProjectManager")
   taskComments     TaskComment[]
   chatMessages     ChatMessage[]
   auditEvents      AuditEvent[]
@@ -287,30 +288,40 @@ model Project {
   startDate   DateTime?
   deadline    DateTime?
   managerId   String?       @db.ObjectId
+  manager     User?         @relation("ProjectManager", fields: [managerId], references: [id], onDelete: SetNull)
   milestones  Milestone[]
   boards      Board[]
   tasks       Task[]
   invoices    Invoice[]
   meetings    Meeting[]
   health      String        @default("healthy")
+  isArchived  Boolean       @default(false)
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 
   @@index([workspaceId, status])
+  @@index([workspaceId, isArchived])
+  @@index([workspaceId, managerId])
 }
 
 model Milestone {
-  id          String    @id @default(auto()) @map("_id") @db.ObjectId
-  workspaceId String    @db.ObjectId
-  projectId   String    @db.ObjectId
-  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  title       String
-  description String?
-  dueDate     DateTime?
-  status      String    @default("pending")
-  tasks       Task[]
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id             String    @id @default(auto()) @map("_id") @db.ObjectId
+  workspaceId    String    @db.ObjectId
+  projectId      String    @db.ObjectId
+  project        Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title          String
+  description    String?
+  dueDate        DateTime?
+  status         String    @default("pending")
+  assignedUserId String?   @db.ObjectId
+  progress       Int       @default(0)
+  completedAt    DateTime?
+  tasks          Task[]
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([workspaceId, projectId])
+  @@index([workspaceId, status])
 }
 
 model Board {

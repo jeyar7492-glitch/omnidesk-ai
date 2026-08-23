@@ -1,9 +1,7 @@
 import { z } from "zod";
 import { AgentExecutionContext, RiskLevel } from "@omnidesk/shared-types";
 import { IAITool } from "../tool.interface";
-import { prisma } from "../../../lib/prisma";
-import { wsManager } from "../../../lib/websocket";
-import { NotFoundError } from "../../../lib/errors";
+import { taskService } from "../../../tasks/services/task.service";
 
 const PriorityLevelSchema = z.enum(["LOW", "MEDIUM", "HIGH", "URGENT"]);
 
@@ -12,14 +10,20 @@ const TaskUpdateInputSchema = z.object({
   title: z.string().min(1).max(200).optional(),
   description: z.string().optional(),
   priority: PriorityLevelSchema.optional(),
+  projectId: z.string().optional(),
+  milestoneId: z.string().optional(),
+  startDate: z.string().optional().describe("ISO start date string"),
   dueDate: z.string().optional().describe("ISO date string for due date"),
-  estimatedHours: z.number().positive().optional(),
+  estimatedHours: z.number().nonnegative().optional(),
+  actualHours: z.number().nonnegative().optional(),
+  labels: z.array(z.string()).optional(),
 });
 
 export class TaskUpdateTool implements IAITool<z.infer<typeof TaskUpdateInputSchema>, any> {
   public readonly id = "task_update";
   public readonly name = "Update Task";
-  public readonly description = "Updates details, priority, due date, or description for an existing task in the workspace.";
+  public readonly description =
+    "Updates details, priority, due date, description, or logged hours for an existing task in the workspace.";
   public readonly parameters = {
     type: "object",
     properties: {
@@ -28,7 +32,9 @@ export class TaskUpdateTool implements IAITool<z.infer<typeof TaskUpdateInputSch
       description: { type: "string", description: "New description" },
       priority: { type: "string", enum: ["LOW", "MEDIUM", "HIGH", "URGENT"], description: "New priority" },
       dueDate: { type: "string", description: "New due date in ISO format" },
+      startDate: { type: "string", description: "New start date in ISO format" },
       estimatedHours: { type: "number", description: "Updated estimated hours" },
+      actualHours: { type: "number", description: "Updated logged actual hours" },
     },
     required: ["taskId"],
   };
@@ -41,35 +47,17 @@ export class TaskUpdateTool implements IAITool<z.infer<typeof TaskUpdateInputSch
     params: z.infer<typeof TaskUpdateInputSchema>,
     context: AgentExecutionContext
   ): Promise<any> {
-    const existing = await prisma.task.findUnique({
-      where: { id: params.taskId },
-    });
-
-    if (!existing || existing.workspaceId !== context.workspaceId) {
-      throw new NotFoundError(`Task '${params.taskId}' not found in workspace`);
-    }
-
-    const updateData: any = {};
-    if (params.title) updateData.title = params.title.trim();
-    if (params.description !== undefined) updateData.description = params.description.trim();
-    if (params.priority) updateData.priority = params.priority;
-    if (params.dueDate) updateData.dueDate = new Date(params.dueDate);
-    if (params.estimatedHours) updateData.estimatedHours = params.estimatedHours;
-
-    const updated = await prisma.task.update({
-      where: { id: params.taskId },
-      data: updateData,
-      include: {
-        assignee: { select: { firstName: true, lastName: true, email: true } },
-      },
-    });
-
-    wsManager.broadcastToWorkspace(context.workspaceId, "task:updated", {
-      taskId: updated.id,
-      title: updated.title,
-      priority: updated.priority,
-      status: updated.status,
-      updatedAt: updated.updatedAt.toISOString(),
+    const updated = await taskService.updateTask(context.workspaceId, params.taskId, {
+      title: params.title,
+      description: params.description,
+      priority: params.priority,
+      projectId: params.projectId,
+      milestoneId: params.milestoneId,
+      startDate: params.startDate ? new Date(params.startDate) : undefined,
+      dueDate: params.dueDate ? new Date(params.dueDate) : undefined,
+      estimatedHours: params.estimatedHours,
+      actualHours: params.actualHours,
+      labels: params.labels,
     });
 
     return {
@@ -78,6 +66,8 @@ export class TaskUpdateTool implements IAITool<z.infer<typeof TaskUpdateInputSch
       description: updated.description,
       priority: updated.priority,
       status: updated.status,
+      estimatedHours: updated.estimatedHours,
+      actualHours: updated.actualHours,
       dueDate: updated.dueDate?.toISOString(),
       updatedAt: updated.updatedAt.toISOString(),
     };
