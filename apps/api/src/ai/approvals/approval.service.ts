@@ -1,30 +1,36 @@
 import { ApprovalStatus, RiskLevel } from "@omnidesk/shared-types";
 import { prisma } from "../../lib/prisma";
 import { AIEventEmitter } from "../events/ai_event_emitter";
-import { NotFoundError, ForbiddenError, ValidationError } from "../../lib/errors";
+import { NotFoundError, ForbiddenError, ValidationError, ConflictError } from "../../lib/errors";
 
 export class ApprovalService {
   public async createApprovalRequest(params: {
     workspaceId: string;
     executionId: string;
-    agentId: string;
+    agentId?: string;
     toolId: string;
-    proposedArguments: Record<string, unknown>;
+    toolName?: string;
+    proposedArguments?: Record<string, unknown>;
+    parameters?: Record<string, unknown>;
     riskLevel: RiskLevel;
-    requestedById: string;
+    requestedById?: string;
+    reason?: string;
   }) {
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24hr expiration
+    const toolArgs = params.proposedArguments || params.parameters || {};
+    const agentKey = params.agentId || "supervisor";
+    const requestedById = params.requestedById || "system_supervisor";
 
     const approval = await prisma.aIApprovalRequest.create({
       data: {
         workspaceId: params.workspaceId,
         executionId: params.executionId,
-        agentKey: params.agentId,
+        agentKey,
         actionName: params.toolId,
-        params: params.proposedArguments as any,
+        params: toolArgs as any,
         riskLevel: params.riskLevel,
         status: "PENDING",
-        requestedById: params.requestedById,
+        requestedById,
       },
     });
 
@@ -45,13 +51,32 @@ export class ApprovalService {
     return approval;
   }
 
-  public async decideApproval(params: {
-    approvalId: string;
-    workspaceId: string;
-    decidedById: string;
-    decision: "APPROVED" | "REJECTED";
-    reason?: string;
-  }) {
+  public async decideApproval(
+    approvalIdOrParams:
+      | string
+      | {
+          approvalId: string;
+          workspaceId: string;
+          decidedById: string;
+          decision: "APPROVED" | "REJECTED";
+          reason?: string;
+        },
+    decisionArg?: "APPROVED" | "REJECTED",
+    decidedByIdArg?: string,
+    workspaceIdArg?: string,
+    reasonArg?: string
+  ) {
+    const params =
+      typeof approvalIdOrParams === "string"
+        ? {
+            approvalId: approvalIdOrParams,
+            decision: decisionArg!,
+            decidedById: decidedByIdArg!,
+            workspaceId: workspaceIdArg!,
+            reason: reasonArg,
+          }
+        : approvalIdOrParams;
+
     const approval = await prisma.aIApprovalRequest.findUnique({
       where: { id: params.approvalId },
     });
@@ -65,7 +90,7 @@ export class ApprovalService {
     }
 
     if (approval.status !== "PENDING") {
-      throw new ValidationError(`Approval is already in '${approval.status}' state`);
+      throw new ConflictError(`Approval is already in '${approval.status}' state`);
     }
 
     const updated = await prisma.aIApprovalRequest.update({

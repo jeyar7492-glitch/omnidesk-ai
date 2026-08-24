@@ -1,20 +1,20 @@
 import { z } from "zod";
 import { AgentExecutionContext, RiskLevel } from "@omnidesk/shared-types";
 import { IAITool } from "../tool.interface";
-import { prisma } from "../../../lib/prisma";
 import { crmService } from "../../../crm/services/crm.service";
+import { prisma } from "../../../lib/prisma";
 import { NotFoundError } from "../../../lib/errors";
 
 const DealAssignInputSchema = z.object({
   dealId: z.string().min(1, "Deal ID is required"),
   assigneeNameOrEmail: z.string().optional().describe("Team member name or email"),
-  assigneeId: z.string().optional().describe("User ID"),
+  assigneeId: z.string().optional().describe("Direct User ID"),
 });
 
 export class DealAssignTool implements IAITool<z.infer<typeof DealAssignInputSchema>, any> {
   public readonly id = "deal_assign";
   public readonly name = "Assign Deal";
-  public readonly description = "Assigns an existing sales deal to a team member in the workspace.";
+  public readonly description = "Assigns an existing deal to a sales team member in the workspace.";
   public readonly parameters = {
     type: "object",
     properties: {
@@ -33,9 +33,9 @@ export class DealAssignTool implements IAITool<z.infer<typeof DealAssignInputSch
     params: z.infer<typeof DealAssignInputSchema>,
     context: AgentExecutionContext
   ): Promise<any> {
-    const deal = await crmService.getDeal(context.workspaceId, params.dealId);
-
+    const existing = await crmService.getDeal(context.workspaceId, params.dealId);
     let targetUserId = params.assigneeId;
+
     if (!targetUserId && params.assigneeNameOrEmail) {
       const needle = params.assigneeNameOrEmail.trim().toLowerCase();
       const member = await prisma.user.findFirst({
@@ -56,8 +56,10 @@ export class DealAssignTool implements IAITool<z.infer<typeof DealAssignInputSch
     }
 
     const updated = await prisma.deal.update({
-      where: { id: deal.id },
-      data: { assignedUserId: targetUserId },
+      where: { id: existing.id },
+      data: {
+        assignedUserId: targetUserId,
+      },
     });
 
     return {

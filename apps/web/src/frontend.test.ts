@@ -50,7 +50,7 @@ describe("OmniDesk AI Frontend Integration Suite", () => {
     const [url, options] = mockFetch.mock.calls[0];
     expect(url).toBe("/api/v1/ai/approvals/approval_123/approve");
     expect(options.method).toBe("POST");
-    expect(JSON.parse(options.body)).toEqual({ reason: "Operator approved" });
+    expect(JSON.parse(options.body)).toEqual({ decision: "APPROVED", reason: "Operator approved" });
     expect(result.status).toBe("APPROVED");
   });
 
@@ -70,7 +70,7 @@ describe("OmniDesk AI Frontend Integration Suite", () => {
     const [url, options] = mockFetch.mock.calls[0];
     expect(url).toBe("/api/v1/ai/approvals/approval_123/reject");
     expect(options.method).toBe("POST");
-    expect(JSON.parse(options.body)).toEqual({ reason: "Denied by security" });
+    expect(JSON.parse(options.body)).toEqual({ decision: "REJECTED", reason: "Denied by security" });
     expect(result.status).toBe("REJECTED");
   });
 
@@ -111,8 +111,8 @@ describe("OmniDesk AI Frontend Integration Suite", () => {
     const history = await apiClient.getAIExecutions();
 
     expect(mockFetch).toHaveBeenCalledTimes(1);
-    expect(history.count).toBe(2);
-    expect(history.executions[0].id).toBe("exec_1");
+    expect(history.length).toBe(2);
+    expect(history[0].id).toBe("exec_1");
   });
 
   it("6. WebSocketClient manages subscription dispatch to registered event listeners", () => {

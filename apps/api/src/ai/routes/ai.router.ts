@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { AIController } from "../controllers/ai.controller";
-import { requireAuthContext } from "../../middleware/auth_context";
+import { requireAuthContext, requirePermission } from "../../middleware/auth_context";
 
 export function createAIRouter(): Router {
   const router = Router();
@@ -9,15 +9,16 @@ export function createAIRouter(): Router {
   router.use(requireAuthContext);
 
   // AI Executions
-  router.post("/executions", AIController.createExecution);
-  router.get("/executions", AIController.listExecutions);
-  router.get("/executions/:id", AIController.getExecution);
+  router.post("/executions", requirePermission("ai:execute"), AIController.createExecution);
+  router.get("/executions", requirePermission("ai:execute"), AIController.listExecutions);
+  router.get("/executions/:id", requirePermission("ai:execute"), AIController.getExecution);
 
   // AI Approvals
-  router.get("/approvals", AIController.listApprovals);
-  router.get("/approvals/:id", AIController.getApproval);
-  router.post("/approvals/:id/approve", AIController.approveApproval);
-  router.post("/approvals/:id/reject", AIController.rejectApproval);
+  router.get("/approvals", requirePermission("ai:execute"), AIController.listApprovals);
+  router.get("/approvals/:id", requirePermission("ai:execute"), AIController.getApproval);
+  router.post("/approvals/:id/approve", requirePermission("ai:approve"), AIController.approveApproval);
+  router.post("/approvals/:id/reject", requirePermission("ai:approve"), AIController.rejectApproval);
 
   return router;
 }
+

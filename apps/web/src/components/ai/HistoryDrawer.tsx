@@ -17,7 +17,7 @@ export const HistoryDrawer: React.FC<HistoryDrawerProps> = ({ isOpen, onClose, o
     setLoading(true);
     try {
       const data = await apiClient.getAIExecutions();
-      setExecutions(data.executions || []);
+      setExecutions(Array.isArray(data) ? data : (data as any).executions || (data as any).items || []);
     } catch {
       // ignore
     } finally {

@@ -1,5 +1,6 @@
 import React from "react";
 import { Bot, FolderKanban, CheckSquare, TrendingUp, Activity, Sparkles } from "lucide-react";
+import { useWorkspace } from "../../context/WorkspaceContext";
 
 export type NavTab = "ai" | "projects" | "tasks" | "crm" | "system";
 
@@ -9,13 +10,47 @@ interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange }) => {
-  const navItems = [
-    { id: "ai" as NavTab, label: "AI Supervisor", icon: Bot, badge: "Live" },
-    { id: "projects" as NavTab, label: "Projects & Health", icon: FolderKanban },
-    { id: "tasks" as NavTab, label: "Tasks & Workload", icon: CheckSquare },
-    { id: "crm" as NavTab, label: "CRM & Pipeline", icon: TrendingUp },
-    { id: "system" as NavTab, label: "System Health", icon: Activity },
+  const { context } = useWorkspace();
+  const isPrivileged = context.userRole === "OWNER" || context.userRole === "ADMIN";
+
+  const allNavItems = [
+    {
+      id: "ai" as NavTab,
+      label: "AI Supervisor",
+      icon: Bot,
+      badge: "Live",
+      requiredPermission: "ai:execute",
+    },
+    {
+      id: "projects" as NavTab,
+      label: "Projects & Health",
+      icon: FolderKanban,
+      requiredPermission: "project:read",
+    },
+    {
+      id: "tasks" as NavTab,
+      label: "Tasks & Workload",
+      icon: CheckSquare,
+      requiredPermission: "task:read",
+    },
+    {
+      id: "crm" as NavTab,
+      label: "CRM & Pipeline",
+      icon: TrendingUp,
+      requiredPermission: "crm:read",
+    },
+    {
+      id: "system" as NavTab,
+      label: "System Health",
+      icon: Activity,
+      requiredPermission: "workspace:read",
+    },
   ];
+
+  const visibleItems = allNavItems.filter((item) => {
+    if (isPrivileged) return true;
+    return context.userPermissions.includes(item.requiredPermission);
+  });
 
   return (
     <aside className="sidebar">
@@ -68,7 +103,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange }) => {
           Workspace
         </div>
 
-        {navItems.map((item) => {
+        {visibleItems.map((item) => {
           const Icon = item.icon;
           const isActive = activeTab === item.id;
           return (
@@ -88,6 +123,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange }) => {
                 fontSize: "0.875rem",
                 boxShadow: isActive ? "var(--shadow-glow)" : "none",
                 textAlign: "left",
+                cursor: "pointer",
               }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
@@ -128,8 +164,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange }) => {
           <span style={{ color: "var(--status-online)", fontWeight: 600 }}>MongoDB rs0</span>
         </div>
         <div style={{ display: "flex", justifyContent: "space-between" }}>
-          <span>AI Foundation</span>
-          <span style={{ color: "var(--brand-cyan)", fontWeight: 600 }}>Supervisor Agent</span>
+          <span>RBAC Mode</span>
+          <span style={{ color: "var(--brand-cyan)", fontWeight: 600 }}>Authoritative</span>
         </div>
       </div>
     </aside>

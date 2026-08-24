@@ -23,7 +23,7 @@ export const CRMView: React.FC = () => {
       setPipeline(p);
       setDeals(d);
       setLeads(l);
-      setStaleDeals(s.staleDeals || []);
+      setStaleDeals(Array.isArray(s) ? s : (s as any).staleDeals || []);
     } catch {
       // ignore
     } finally {

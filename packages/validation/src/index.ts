@@ -167,23 +167,23 @@ export const CreateCRMActivitySchema = z.object({
   dueDate: z.string().datetime().optional(),
 });
 
-// ── Project Management Validation Schemas ────────────────────────────────────
-
-export const ProjectStatusSchema = z.enum(["PLANNING", "ACTIVE", "ON_HOLD", "COMPLETED", "CANCELLED"]);
-
-export const TaskWorkflowStageSchema = z.enum(["backlog", "todo", "in_progress", "review", "testing", "done"]);
+// ── Project & Milestone Validation Schemas ──────────────────────────────────
+export const ProjectStatusSchema = z.string();
+export const MilestoneStatusSchema = z.string();
 
 export const CreateProjectSchema = z.object({
   name: z.string().min(1, "Project name is required").max(200),
-  description: z.string().max(4000).optional(),
-  status: ProjectStatusSchema.optional().default("PLANNING"),
-  budget: z.number().nonnegative("Budget must be non-negative").optional().default(0),
-  spent: z.number().nonnegative().optional().default(0),
-  startDate: z.string().datetime().optional(),
-  deadline: z.string().datetime().optional(),
+  description: z.string().max(2000).optional(),
+  status: z.string().optional().default("PLANNING"),
+  priority: z.string().optional().default("MEDIUM"),
+  targetDate: z.string().optional(),
+  startDate: z.string().optional(),
+  deadline: z.string().optional(),
+  budget: z.number().nonnegative().optional(),
+  spent: z.number().nonnegative().optional(),
   managerId: z.string().optional(),
   customerId: z.string().optional(),
-  health: z.string().optional().default("healthy"),
+  health: z.string().optional(),
 });
 
 export const UpdateProjectSchema = CreateProjectSchema.partial();
@@ -195,46 +195,43 @@ export const ArchiveProjectSchema = z.object({
 export const CreateMilestoneSchema = z.object({
   projectId: z.string().min(1, "Project ID is required"),
   title: z.string().min(1, "Milestone title is required").max(200),
-  description: z.string().max(2000).optional(),
-  dueDate: z.string().datetime().optional(),
-  status: z.string().optional().default("pending"),
+  description: z.string().max(1000).optional(),
+  dueDate: z.string().optional(),
+  status: z.string().optional().default("UPCOMING"),
   assignedUserId: z.string().optional(),
 });
 
-export const UpdateMilestoneSchema = z.object({
-  title: z.string().min(1).max(200).optional(),
-  description: z.string().max(2000).optional(),
-  dueDate: z.string().datetime().optional(),
-  status: z.string().optional(),
-  assignedUserId: z.string().optional(),
-});
+export const UpdateMilestoneSchema = CreateMilestoneSchema.partial();
 
 export const CompleteMilestoneSchema = z.object({
-  notes: z.string().max(1000).optional(),
+  completedAt: z.string().optional(),
+  notes: z.string().max(500).optional(),
 });
+
+// ── Task Validation Schemas ─────────────────────────────────────────────────
+export const TaskStatusSchema = z.string();
 
 export const CreateTaskSchema = z.object({
   title: z.string().min(1, "Task title is required").max(200),
   description: z.string().max(4000).optional(),
+  status: z.string().optional().default("TODO"),
+  priority: z.string().optional().default("MEDIUM"),
   projectId: z.string().optional(),
   milestoneId: z.string().optional(),
-  boardId: z.string().optional(),
-  columnId: z.string().optional(),
-  status: TaskWorkflowStageSchema.optional().default("todo"),
-  priority: PriorityLevelSchema.optional().default("MEDIUM"),
   assigneeId: z.string().optional(),
-  startDate: z.string().datetime().optional(),
-  dueDate: z.string().datetime().optional(),
+  startDate: z.string().optional(),
+  dueDate: z.string().optional(),
   estimatedHours: z.number().nonnegative().optional(),
   actualHours: z.number().nonnegative().optional(),
-  labels: z.array(z.string()).optional().default([]),
-  dependencies: z.array(z.string()).optional().default([]),
+  tags: z.array(z.string()).optional().default([]),
+  labels: z.array(z.string()).optional(),
+  dependencies: z.array(z.string()).optional(),
 });
 
 export const UpdateTaskSchema = CreateTaskSchema.partial();
 
 export const MoveTaskSchema = z.object({
-  targetStatus: TaskWorkflowStageSchema,
+  targetStatus: z.string().min(1, "Target status is required"),
   reason: z.string().max(500).optional(),
 });
 
@@ -244,19 +241,45 @@ export const AssignTaskSchema = z.object({
 });
 
 export const CreateTaskChecklistSchema = z.object({
-  items: z.array(z.string().min(1, "Checklist item title required").max(300)).min(1, "At least one checklist item is required"),
+  items: z.array(z.string()).default([]),
+  title: z.string().optional(),
+  isCompleted: z.boolean().optional().default(false),
 });
 
 export const UpdateTaskChecklistSchema = z.object({
-  isCompleted: z.boolean(),
-  title: z.string().min(1).max(300).optional(),
+  isCompleted: z.boolean().default(false),
+  title: z.string().optional(),
 });
 
 export const CreateTaskDependencySchema = z.object({
   dependsOnTaskId: z.string().min(1, "Dependency task ID is required"),
+  blockingTaskId: z.string().optional(),
 });
 
 export const CreateTaskCommentSchema = z.object({
-  content: z.string().min(1, "Comment content is required").max(4000),
+  content: z.string().min(1, "Comment content is required").max(2000),
+});
+
+// ── Authentication Validation Schemas ───────────────────────────────────────
+export const RegisterSchema = z.object({
+  email: z.string().email("Invalid email address"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
+  firstName: z.string().min(1, "First name is required").max(100),
+  lastName: z.string().min(1, "Last name is required").max(100),
+  organizationName: z.string().max(100).optional(),
+  workspaceName: z.string().max(100).optional(),
+});
+
+export const LoginSchema = z.object({
+  email: z.string().email("Invalid email address"),
+  password: z.string().min(1, "Password is required"),
+});
+
+export const RefreshTokenSchema = z.object({
+  refreshToken: z.string().min(1, "Refresh token is required"),
+});
+
+export const SwitchWorkspaceSchema = z.object({
+  targetWorkspaceId: z.string().min(1, "Target workspace ID is required"),
 });
 

@@ -1,6 +1,7 @@
 import express, { Express, Request, Response } from "express";
 import cors from "cors";
 import helmet from "helmet";
+import rateLimit from "express-rate-limit";
 import { env } from "./config/env";
 import { requestLogger } from "./middleware/requestLogger";
 import { errorHandler } from "./middleware/errorHandler";
@@ -38,6 +39,24 @@ export function createApp(): Express {
 
   // Logging
   app.use(requestLogger);
+
+  // General API Rate Limiting (skipped in test environment)
+  if (process.env.NODE_ENV !== "test") {
+    const apiLimiter = rateLimit({
+      windowMs: env.RATE_LIMIT_WINDOW_MS,
+      max: env.RATE_LIMIT_MAX_REQUESTS,
+      standardHeaders: true,
+      legacyHeaders: false,
+      message: {
+        success: false,
+        error: {
+          code: "TOO_MANY_REQUESTS",
+          message: "Rate limit exceeded, please try again later",
+        },
+      },
+    });
+    app.use(env.API_PREFIX, apiLimiter);
+  }
 
   // Root Health / Info Route
   app.get("/health", (_req: Request, res: Response) => {

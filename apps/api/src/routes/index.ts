@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { healthRouter } from "./health.router";
+import { authRouter } from "../auth/routes/auth.router";
 import { createAIRouter } from "../ai/routes/ai.router";
 import { crmRouter } from "../crm/routes/crm.router";
 import { projectsRouter } from "../projects/routes/projects.router";
@@ -10,8 +11,10 @@ export const v1Router = Router();
 
 // Version 1 Routes
 v1Router.use("/health", healthRouter);
+v1Router.use("/auth", authRouter);
 v1Router.use("/ai", createAIRouter());
 v1Router.use("/crm", crmRouter);
 v1Router.use("/projects", projectsRouter);
 v1Router.use("/milestones", milestonesRouter);
 v1Router.use("/tasks", tasksRouter);
+

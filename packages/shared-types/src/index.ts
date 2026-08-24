@@ -413,3 +413,44 @@ export type CRMLeadSummary = LeadSummary;
 export type CRMDealSummary = DealSummary;
 export type CRMCustomerSummary = CustomerSummary;
 
+// ── Authentication & Security Contracts ────────────────────────────────────
+export interface AuthUser {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  avatarUrl?: string | null;
+  isActive: boolean;
+  isVerified: boolean;
+  role: SystemRole;
+  permissions: string[];
+  activeWorkspaceId: string;
+  workspaces: Array<{
+    id: string;
+    name: string;
+    slug: string;
+    role: SystemRole;
+  }>;
+}
+
+export interface AuthTokens {
+  accessToken: string;
+  refreshToken: string;
+  expiresIn: number;
+}
+
+export interface AuthResponse {
+  user: AuthUser;
+  tokens: AuthTokens;
+}
+
+export interface JWTPayload {
+  userId: string;
+  email: string;
+  workspaceId: string;
+  role: SystemRole;
+  iat?: number;
+  exp?: number;
+}
+
+
