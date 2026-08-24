@@ -235,11 +235,7 @@ export class AuthService {
     const user = await prisma.user.findUnique({
       where: { email },
       include: {
-        memberships: {
-          include: {
-            workspace: true,
-          },
-        },
+        memberships: true,
       },
     });
 
@@ -294,12 +290,17 @@ export class AuthService {
             role: "ADMIN",
             permissions: getDefaultPermissionsForRole("ADMIN"),
           },
-          include: { workspace: true },
         });
         activeMembership = member;
         user.memberships.push(member);
       }
     }
+
+    const wsIds = user.memberships.map((m) => m.workspaceId);
+    const workspaces = await prisma.workspace.findMany({
+      where: { id: { in: wsIds } },
+    });
+    const wsMap = new Map(workspaces.map((w) => [w.id, w]));
 
     const role = (activeMembership.role as SystemRole) || "MEMBER";
     const permissions =
@@ -343,8 +344,8 @@ export class AuthService {
       activeWorkspaceId: activeMembership.workspaceId,
       workspaces: user.memberships.map((m) => ({
         id: m.workspaceId,
-        name: m.workspace.name,
-        slug: m.workspace.slug,
+        name: wsMap.get(m.workspaceId)?.name || "Workspace",
+        slug: wsMap.get(m.workspaceId)?.slug || "workspace",
         role: m.role as SystemRole,
       })),
     };
@@ -361,9 +362,7 @@ export class AuthService {
       include: {
         user: {
           include: {
-            memberships: {
-              include: { workspace: true },
-            },
+            memberships: true,
           },
         },
       },
@@ -415,9 +414,7 @@ export class AuthService {
     const user = await prisma.user.findUnique({
       where: { id: userId },
       include: {
-        memberships: {
-          include: { workspace: true },
-        },
+        memberships: true,
       },
     });
 
@@ -432,6 +429,12 @@ export class AuthService {
     if (!activeMembership) {
       throw new ForbiddenError("User is not a member of the requested workspace");
     }
+
+    const wsIds = user.memberships.map((m) => m.workspaceId);
+    const workspaces = await prisma.workspace.findMany({
+      where: { id: { in: wsIds } },
+    });
+    const wsMap = new Map(workspaces.map((w) => [w.id, w]));
 
     const role = (activeMembership.role as SystemRole) || "MEMBER";
     const permissions =
@@ -452,8 +455,8 @@ export class AuthService {
       activeWorkspaceId: activeMembership.workspaceId,
       workspaces: user.memberships.map((m) => ({
         id: m.workspaceId,
-        name: m.workspace.name,
-        slug: m.workspace.slug,
+        name: wsMap.get(m.workspaceId)?.name || "Workspace",
+        slug: wsMap.get(m.workspaceId)?.slug || "workspace",
         role: m.role as SystemRole,
       })),
     };

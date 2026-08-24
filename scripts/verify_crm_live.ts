@@ -1,13 +1,32 @@
 import { WebSocket } from "ws";
+import { authService } from "../apps/api/src/auth/services/auth.service";
+import { prisma } from "../apps/api/src/lib/prisma";
 
 async function main() {
   const baseUrl = "http://localhost:4000/api/v1";
-  const authHeaders = {
+
+  const runId = Math.random().toString(36).substring(2, 9);
+  const testEmail = `crm_live_${runId}@omnidesk.ai`;
+  const regRes = await authService.register({
+    email: testEmail,
+    password: "StrongPassword123!",
+    firstName: "Elena",
+    lastName: "Vance",
+    organizationName: "Starlight Corp",
+    workspaceName: "Starlight Aerospace",
+  });
+
+  const token = regRes.tokens.accessToken;
+  const workspaceId = regRes.user.activeWorkspaceId;
+  const userId = regRes.user.id;
+
+  const authHeaders: Record<string, string> = {
     "Content-Type": "application/json",
-    "x-workspace-id": "67b844ec10ec6e3973b5cc11",
-    "x-user-id": "67b844ec10ec6e3973b5cc33",
-    "x-user-role": "ADMIN",
-    "x-user-permissions": "workspace:read,workspace:write,crm:read,crm:write,lead:read,lead:write,customer:read,customer:write,contact:read,contact:write,deal:read,deal:write",
+    "x-workspace-id": workspaceId,
+    "x-user-id": userId,
+    "x-user-role": "OWNER",
+    "x-user-permissions": regRes.user.permissions.join(","),
+    "Authorization": `Bearer ${token}`,
   };
 
   console.log("=== OMNIDESK AI CRM & SALES AGENT LIVE VERIFICATION ===");
