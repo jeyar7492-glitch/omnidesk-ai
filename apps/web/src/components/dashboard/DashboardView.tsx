@@ -1,42 +1,23 @@
 import React, { useEffect, useState } from "react";
-import { Activity, AlertTriangle, CheckCircle2, FolderKanban, ListTodo, TrendingUp, Users, Bot, ShieldAlert } from "lucide-react";
+import { Activity, FolderKanban, ListTodo, TrendingUp, Users, Bot, ShieldAlert } from "lucide-react";
 import { apiClient } from "../../api/client";
 import type { DashboardMetrics } from "@omnidesk/shared-types";
 
-const Card: React.FC<{ title: string; value: React.ReactNode; icon: React.ReactNode; detail?: string }> = ({ title, value, icon, detail }) => (
-  <div className="glass-card" style={{ padding: "1rem", minHeight: 110 }}>
-    <div style={{ display: "flex", justifyContent: "space-between", color: "var(--text-muted)", fontSize: 12 }}><span>{title}</span>{icon}</div>
-    <div style={{ fontSize: 28, fontWeight: 750, marginTop: 10 }}>{value}</div>
-    {detail && <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 4 }}>{detail}</div>}
-  </div>
-);
+const Card: React.FC<{ title: string; value: React.ReactNode; icon: React.ReactNode; detail?: string }> = ({ title, value, icon, detail }) => <div className="glass-card" style={{ padding: "1rem", minHeight: 110 }}><div style={{ display: "flex", justifyContent: "space-between", color: "var(--text-muted)", fontSize: 12 }}><span>{title}</span>{icon}</div><div style={{ fontSize: 28, fontWeight: 750, marginTop: 10 }}>{value}</div>{detail && <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 4 }}>{detail}</div>}</div>;
 
 export const DashboardView: React.FC = () => {
   const [data, setData] = useState<DashboardMetrics | null>(null);
   const [loading, setLoading] = useState(true);
-  const load = async () => { try { setData(await apiClient.getDashboardMetrics()); } finally { setLoading(false); } };
+  const load = async () => { try { const token = apiClient.getAccessToken(); const res = await fetch("/api/v1/dashboard/metrics", { headers: { Authorization: `Bearer ${token || ""}` } }); const body = await res.json(); if (!res.ok) throw new Error(body?.error?.message || "Dashboard request failed"); setData(body.data); } finally { setLoading(false); } };
   useEffect(() => { void load(); const timer = window.setInterval(() => void load(), 30000); return () => window.clearInterval(timer); }, []);
   if (loading && !data) return <div style={{ padding: 24, color: "var(--text-muted)" }}>Loading live workspace dashboard...</div>;
   if (!data) return <div style={{ padding: 24 }}>Unable to load dashboard.</div>;
   const k = data.kpis;
   return <main style={{ padding: 24, overflowY: "auto", height: "calc(100vh - 60px)" }}>
     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "end", marginBottom: 20 }}><div><div style={{ fontSize: 12, color: "var(--brand-cyan)", fontWeight: 700 }}>LIVE WORKSPACE INTELLIGENCE</div><h1 style={{ margin: "6px 0 0", fontSize: 28 }}>Executive Dashboard</h1></div><span style={{ fontSize: 12, color: "var(--text-muted)" }}>Updated {new Date(data.generatedAt).toLocaleTimeString()}</span></div>
-    <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 12 }}>
-      <Card title="Active Projects" value={k.activeProjects} icon={<FolderKanban size={17}/>} detail={`${k.completedProjects} completed`} />
-      <Card title="Total Tasks" value={k.totalTasks} icon={<ListTodo size={17}/>} detail={`${k.overdueTasks} overdue · ${k.blockedTasks} blocked`} />
-      <Card title="Pipeline" value={`$${Math.round(k.pipelineValue).toLocaleString()}`} icon={<TrendingUp size={17}/>} detail={`$${Math.round(k.weightedForecast).toLocaleString()} weighted`} />
-      <Card title="Open Deals" value={k.openDeals} icon={<TrendingUp size={17}/>} detail={`${k.leads} leads`} />
-      <Card title="AI Executions" value={k.aiExecutions} icon={<Bot size={17}/>} detail={`${k.pendingApprovals} approvals pending`} />
-      <Card title="Team Members" value={data.teamWorkload.length} icon={<Users size={17}/>} />
-    </section>
-    <section style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr", gap: 14, marginTop: 14 }}>
-      <div className="glass-card" style={{ padding: 16 }}><h3>Project Health & Progress</h3>{data.projectOverview.map(p => <div key={p.id} style={{ marginTop: 14 }}><div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}><span>{p.name}</span><span>{p.progress}% · {p.health}</span></div><div style={{ height: 7, background: "var(--bg-elevated)", borderRadius: 8, marginTop: 6 }}><div style={{ width: `${p.progress}%`, height: "100%", borderRadius: 8, background: "linear-gradient(90deg,var(--brand-cyan),var(--brand-indigo))" }}/></div></div>)}</div>
-      <div className="glass-card" style={{ padding: 16 }}><h3>Task Distribution</h3>{Object.entries(data.taskOverview.status).map(([s,n]) => <div key={s} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid var(--border-subtle)" }}><span>{s}</span><b>{n}</b></div>)}</div>
-    </section>
-    <section style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginTop: 14 }}>
-      <div className="glass-card" style={{ padding: 16 }}><h3><Activity size={16}/> Recent Activity</h3>{data.recentActivity.slice(0,8).map(a => <div key={a.id} style={{ padding: "8px 0", borderBottom: "1px solid var(--border-subtle)", fontSize: 13 }}><b>{a.action}</b> · {a.entityType}<div style={{ color: "var(--text-muted)", fontSize: 11 }}>{a.userName || "System"} · {new Date(a.createdAt).toLocaleString()}</div></div>)}</div>
-      <div className="glass-card" style={{ padding: 16 }}><h3><Users size={16}/> Team Workload</h3>{data.teamWorkload.map(m => <div key={m.userId} style={{ padding: "9px 0", borderBottom: "1px solid var(--border-subtle)" }}><div style={{ display: "flex", justifyContent: "space-between" }}><span>{m.name}</span><b>{m.utilization}%</b></div><div style={{ color: "var(--text-muted)", fontSize: 11 }}>{m.activeTasks} active · {m.overdueTasks} overdue · {m.estimatedHours}h estimated</div></div>)}</div>
-    </section>
+    <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 12 }}><Card title="Active Projects" value={k.activeProjects} icon={<FolderKanban size={17}/>} detail={`${k.completedProjects} completed`} /><Card title="Total Tasks" value={k.totalTasks} icon={<ListTodo size={17}/>} detail={`${k.overdueTasks} overdue · ${k.blockedTasks} blocked`} /><Card title="Pipeline" value={`$${Math.round(k.pipelineValue).toLocaleString()}`} icon={<TrendingUp size={17}/>} detail={`$${Math.round(k.weightedForecast).toLocaleString()} weighted`} /><Card title="Open Deals" value={k.openDeals} icon={<TrendingUp size={17}/>} detail={`${k.leads} leads`} /><Card title="AI Executions" value={k.aiExecutions} icon={<Bot size={17}/>} detail={`${k.pendingApprovals} approvals pending`} /><Card title="Team Members" value={data.teamWorkload.length} icon={<Users size={17}/>} /></section>
+    <section style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr", gap: 14, marginTop: 14 }}><div className="glass-card" style={{ padding: 16 }}><h3>Project Health & Progress</h3>{data.projectOverview.map(p => <div key={p.id} style={{ marginTop: 14 }}><div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}><span>{p.name}</span><span>{p.progress}% · {p.health}</span></div><div style={{ height: 7, background: "var(--bg-elevated)", borderRadius: 8, marginTop: 6 }}><div style={{ width: `${p.progress}%`, height: "100%", borderRadius: 8, background: "linear-gradient(90deg,var(--brand-cyan),var(--brand-indigo))" }}/></div></div>)}</div><div className="glass-card" style={{ padding: 16 }}><h3>Task Distribution</h3>{Object.entries(data.taskOverview.status).map(([s,n]) => <div key={s} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid var(--border-subtle)" }}><span>{s}</span><b>{n}</b></div>)}</div></section>
+    <section style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginTop: 14 }}><div className="glass-card" style={{ padding: 16 }}><h3><Activity size={16}/> Recent Activity</h3>{data.recentActivity.slice(0,8).map(a => <div key={a.id} style={{ padding: "8px 0", borderBottom: "1px solid var(--border-subtle)", fontSize: 13 }}><b>{a.action}</b> · {a.entityType}<div style={{ color: "var(--text-muted)", fontSize: 11 }}>{a.userName || "System"} · {new Date(a.createdAt).toLocaleString()}</div></div>)}</div><div className="glass-card" style={{ padding: 16 }}><h3><Users size={16}/> Team Workload</h3>{data.teamWorkload.map(m => <div key={m.userId} style={{ padding: "9px 0", borderBottom: "1px solid var(--border-subtle)" }}><div style={{ display: "flex", justifyContent: "space-between" }}><span>{m.name}</span><b>{m.utilization}%</b></div><div style={{ color: "var(--text-muted)", fontSize: 11 }}>{m.activeTasks} active · {m.overdueTasks} overdue · {m.estimatedHours}h estimated</div></div>)}</div></section>
     <section className="glass-card" style={{ padding: 16, marginTop: 14 }}><h3><Bot size={16}/> AI Activity & Approvals</h3>{data.aiActivity.recent.slice(0,6).map(e => <div key={e.id} style={{ padding: "8px 0", display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--border-subtle)" }}><span>{e.prompt.slice(0,100)}</span><span>{e.status}</span></div>)}{data.aiActivity.pendingApprovals.length > 0 && <div style={{ marginTop: 12, color: "#fbbf24" }}><ShieldAlert size={15}/> {data.aiActivity.pendingApprovals.length} high-risk action(s) awaiting approval</div>}</section>
   </main>;
 };
