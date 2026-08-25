@@ -16,8 +16,11 @@ healthRouter.get("/", async (_req: Request, res: Response) => {
     dbStatus = "disconnected";
   }
 
-  res.status(200).json({
-    status: "ok",
+  const isHealthy = dbStatus === "connected";
+  const statusCode = isHealthy ? 200 : 503;
+
+  res.status(statusCode).json({
+    status: isHealthy ? "ok" : "degraded",
     service: "omnidesk-api",
     version: "2.0.0",
     environment: process.env.NODE_ENV || "development",
@@ -28,3 +31,4 @@ healthRouter.get("/", async (_req: Request, res: Response) => {
     },
   });
 });
+

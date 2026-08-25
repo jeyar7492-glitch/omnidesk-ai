@@ -9,7 +9,16 @@ const envSchema = z.object({
   HOST: z.string().default("0.0.0.0"),
   API_PREFIX: z.string().default("/api/v1"),
   CORS_ORIGIN: z.string().default("http://localhost:5173"),
-  DATABASE_URL: z.string().default("mongodb://127.0.0.1:27017/omnidesk_ai?authSource=admin"),
+  DATABASE_URL: z
+    .string()
+    .refine(
+      (url) => url.startsWith("mongodb://") || url.startsWith("mongodb+srv://"),
+      {
+        message: "DATABASE_URL must start with mongodb:// or mongodb+srv://",
+      }
+    )
+    .default("mongodb://127.0.0.1:27017/omnidesk_ai?authSource=admin"),
+
   JWT_SECRET: z.string().min(16).default("omnidesk_super_secure_access_secret_minimum_32_chars_2026"),
   JWT_EXPIRES_IN: z.string().default("15m"),
   REFRESH_TOKEN_SECRET: z.string().min(16).default("omnidesk_super_secure_refresh_secret_minimum_32_chars_2026"),
