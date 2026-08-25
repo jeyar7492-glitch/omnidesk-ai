@@ -70,11 +70,17 @@ export function createApp(): Express {
   app.use(env.API_PREFIX, v1Router);
 
   // Serve static React web app if dist directory exists
-  const webDistPath = path.resolve(__dirname, "../../web/dist");
-  if (fs.existsSync(webDistPath)) {
+  const webDistCandidates = [
+    path.resolve(process.cwd(), "apps/web/dist"),
+    path.resolve(__dirname, "../../web/dist"),
+    path.resolve(__dirname, "../../../apps/web/dist"),
+    path.resolve(process.cwd(), "dist"),
+  ];
+  const webDistPath = webDistCandidates.find((p) => fs.existsSync(p) && fs.existsSync(path.join(p, "index.html")));
+  if (webDistPath) {
     app.use(express.static(webDistPath));
     app.get("*", (req: Request, res: Response, next) => {
-      if (req.path.startsWith(env.API_PREFIX) || req.path === "/health") {
+      if (req.path.startsWith(env.API_PREFIX) || req.path === "/health" || req.path.startsWith("/ws")) {
         return next();
       }
       const indexPath = path.join(webDistPath, "index.html");
@@ -84,6 +90,7 @@ export function createApp(): Express {
       next();
     });
   }
+
 
   // Catch 404 for unmatched API routes
   app.use((req: Request, _res: Response, next) => {
