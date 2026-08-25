@@ -29,7 +29,15 @@ export class WebSocketClient {
 
     const protocol = window.location?.protocol === "https:" ? "wss:" : "ws:";
     const host = window.location?.host || "localhost:4000";
-    const wsUrl = `${protocol}//${host}/ws`;
+    let token = "";
+    try {
+      token = localStorage.getItem("omnidesk_access_token") || "";
+    } catch {
+      // Ignore
+    }
+    const tokenQuery = token ? `?token=${encodeURIComponent(token)}` : "";
+    const wsUrl = `${protocol}//${host}/ws${tokenQuery}`;
+
 
     try {
       this.socket = new WebSocket(wsUrl);
