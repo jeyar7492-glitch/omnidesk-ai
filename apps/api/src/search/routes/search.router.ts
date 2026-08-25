@@ -1,6 +1,11 @@
 import { Router } from "express";
-import { search } from "../controllers/search.controller";
+import { SearchController } from "../controllers/search.controller";
 import { requireAuthContext, requirePermission } from "../../middleware/auth_context";
 
 export const searchRouter = Router();
-searchRouter.get("/", requireAuthContext, requirePermission("workspace:read"), search);
+
+// Apply authentication middleware
+searchRouter.use(requireAuthContext);
+
+// Workspace-scoped global search endpoint
+searchRouter.get("/", requirePermission("workspace:read"), SearchController.search);

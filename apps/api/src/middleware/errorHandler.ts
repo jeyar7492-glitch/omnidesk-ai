@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import { AppError } from "../lib/errors";
 import { logger } from "../lib/logger";
 import { ApiResponse } from "@omnidesk/shared-types";
+import { ZodError } from "zod";
 
 export function errorHandler(
   err: Error,
@@ -10,6 +11,22 @@ export function errorHandler(
   _next: NextFunction
 ): void {
   const requestId = (req.headers["x-request-id"] as string) || `req_${Date.now()}`;
+
+  if (err instanceof ZodError || (err as any).name === "ZodError") {
+    const response: ApiResponse<null> = {
+      success: false,
+      data: null,
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "Request validation failed",
+        details: (err as ZodError).errors,
+        requestId,
+      },
+    };
+
+    res.status(400).json(response);
+    return;
+  }
 
   if (err instanceof AppError) {
     logger.warn(
@@ -41,6 +58,7 @@ export function errorHandler(
     res.status(err.statusCode).json(response);
     return;
   }
+
 
   // Unhandled internal server error
   logger.error(

@@ -1,33 +1,336 @@
-import { prisma } from "../../lib/prisma";
 import { GlobalSearchResponse, SearchResultItem } from "@omnidesk/shared-types";
+import { prisma } from "../../lib/prisma";
 
 export class SearchService {
-  public async search(workspaceId: string, query: string, limit: number): Promise<GlobalSearchResponse> {
-    const q = query.trim();
-    const perType = Math.max(1, Math.ceil(limit / 5));
-    const contains = { contains: q, mode: "insensitive" as const };
-    const [projects, tasks, customers, contacts, leads, deals, milestones, executions] = await Promise.all([
-      prisma.project.findMany({ where: { workspaceId, isArchived: false, OR: [{ name: contains }, { description: contains }] }, take: perType, orderBy: { updatedAt: "desc" } }),
-      prisma.task.findMany({ where: { workspaceId, isArchived: false, OR: [{ title: contains }, { description: contains }, { labels: { has: q } }] }, take: perType, orderBy: { updatedAt: "desc" } }),
-      prisma.customer.findMany({ where: { workspaceId, OR: [{ companyName: contains }, { contactPerson: contains }, { email: contains }] }, take: perType, orderBy: { updatedAt: "desc" } }),
-      prisma.contact.findMany({ where: { workspaceId, OR: [{ firstName: contains }, { lastName: contains }, { email: contains }, { jobTitle: contains }] }, take: perType, orderBy: { updatedAt: "desc" } }),
-      prisma.lead.findMany({ where: { workspaceId, OR: [{ title: contains }, { notes: contains }] }, take: perType, orderBy: { updatedAt: "desc" } }),
-      prisma.deal.findMany({ where: { workspaceId, OR: [{ title: contains }, { notes: contains }] }, take: perType, orderBy: { updatedAt: "desc" } }),
-      prisma.milestone.findMany({ where: { workspaceId, OR: [{ title: contains }, { description: contains }] }, take: perType, orderBy: { updatedAt: "desc" } }),
-      prisma.aIExecution.findMany({ where: { workspaceId, OR: [{ prompt: contains }, { finalResponse: contains }] }, take: perType, orderBy: { createdAt: "desc" } }),
-    ]);
-    const result = (): Record<string, SearchResultItem[]> => ({ projects: [], tasks: [], crm: [], milestones: [], ai: [] });
-    const results = result();
-    for (const p of projects) results.projects.push({ id: p.id, category: "projects", title: p.name, subtitle: p.description || undefined, status: p.status, navigation: { tab: "projects", id: p.id } });
-    for (const t of tasks) results.tasks.push({ id: t.id, category: "tasks", title: t.title, subtitle: t.description || undefined, status: t.status, navigation: { tab: "tasks", id: t.id } });
-    for (const c of [...customers, ...contacts, ...leads, ...deals]) {
-      const item: SearchResultItem = { id: c.id, category: "crm", title: "title" in c ? c.title : "companyName" in c ? c.companyName : `${c.firstName} ${c.lastName}`, navigation: { tab: "crm", id: c.id } };
-      results.crm.push(item);
+  /**
+   * Search entities across a specific workspace.
+   * Multi-entity search with strict workspace boundary isolation.
+   */
+  public async search(
+    workspaceId: string,
+    query: string,
+    limit: number = 20
+  ): Promise<GlobalSearchResponse> {
+    const trimmedQuery = query.trim();
+    if (!trimmedQuery) {
+      return {
+        query: "",
+        totalResults: 0,
+        resultsByGroup: {
+          projects: [],
+          tasks: [],
+          crm: [],
+          milestones: [],
+          ai: [],
+        },
+      };
     }
-    for (const m of milestones) results.milestones.push({ id: m.id, category: "milestones", title: m.title, subtitle: m.description || undefined, status: m.status, navigation: { tab: "projects", id: m.projectId } });
-    for (const e of executions) results.ai.push({ id: e.id, category: "ai", title: e.prompt.slice(0, 120), subtitle: e.finalResponse?.slice(0, 160), status: e.status, navigation: { tab: "ai", id: e.id } });
-    const flat = Object.values(results).flat().slice(0, limit);
-    return { query: q, total: flat.length, results: { projects: results.projects, tasks: results.tasks, crm: results.crm, milestones: results.milestones, ai: results.ai } };
+
+    const perEntityLimit = Math.min(Math.max(limit, 5), 25);
+
+    // Parallel multi-entity queries strictly isolated by workspaceId
+    const [
+      projects,
+      tasks,
+      customers,
+      contacts,
+      leads,
+      deals,
+      milestones,
+      aiExecutions,
+    ] = await Promise.all([
+      // 1. Projects
+      prisma.project.findMany({
+        where: {
+          workspaceId,
+          OR: [
+            { name: { contains: trimmedQuery, mode: "insensitive" } },
+            { description: { contains: trimmedQuery, mode: "insensitive" } },
+          ],
+        },
+        select: {
+          id: true,
+          name: true,
+          description: true,
+          status: true,
+          health: true,
+        },
+        take: perEntityLimit,
+      }),
+
+      // 2. Tasks
+      prisma.task.findMany({
+        where: {
+          workspaceId,
+          OR: [
+            { title: { contains: trimmedQuery, mode: "insensitive" } },
+            { description: { contains: trimmedQuery, mode: "insensitive" } },
+            { labels: { has: trimmedQuery } },
+          ],
+        },
+        select: {
+          id: true,
+          title: true,
+          description: true,
+          status: true,
+          priority: true,
+          projectId: true,
+        },
+        take: perEntityLimit,
+      }),
+
+      // 3. Customers
+      prisma.customer.findMany({
+        where: {
+          workspaceId,
+          OR: [
+            { companyName: { contains: trimmedQuery, mode: "insensitive" } },
+            { contactPerson: { contains: trimmedQuery, mode: "insensitive" } },
+            { email: { contains: trimmedQuery, mode: "insensitive" } },
+          ],
+        },
+        select: {
+          id: true,
+          companyName: true,
+          contactPerson: true,
+          email: true,
+          industry: true,
+        },
+        take: perEntityLimit,
+      }),
+
+      // 4. Contacts
+      prisma.contact.findMany({
+        where: {
+          workspaceId,
+          OR: [
+            { firstName: { contains: trimmedQuery, mode: "insensitive" } },
+            { lastName: { contains: trimmedQuery, mode: "insensitive" } },
+            { email: { contains: trimmedQuery, mode: "insensitive" } },
+            { jobTitle: { contains: trimmedQuery, mode: "insensitive" } },
+          ],
+        },
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+          jobTitle: true,
+          customer: { select: { companyName: true } },
+        },
+        take: perEntityLimit,
+      }),
+
+      // 5. Leads
+      prisma.lead.findMany({
+        where: {
+          workspaceId,
+          OR: [
+            { title: { contains: trimmedQuery, mode: "insensitive" } },
+            { notes: { contains: trimmedQuery, mode: "insensitive" } },
+          ],
+        },
+        select: {
+          id: true,
+          title: true,
+          dealValue: true,
+          stage: true,
+          customer: { select: { companyName: true } },
+        },
+        take: perEntityLimit,
+      }),
+
+      // 6. Deals
+      prisma.deal.findMany({
+        where: {
+          workspaceId,
+          OR: [
+            { title: { contains: trimmedQuery, mode: "insensitive" } },
+            { notes: { contains: trimmedQuery, mode: "insensitive" } },
+          ],
+        },
+        select: {
+          id: true,
+          title: true,
+          dealValue: true,
+          stage: true,
+          customer: { select: { companyName: true } },
+        },
+        take: perEntityLimit,
+      }),
+
+      // 7. Milestones
+      prisma.milestone.findMany({
+        where: {
+          workspaceId,
+          OR: [
+            { title: { contains: trimmedQuery, mode: "insensitive" } },
+            { description: { contains: trimmedQuery, mode: "insensitive" } },
+          ],
+        },
+        select: {
+          id: true,
+          title: true,
+          status: true,
+          dueDate: true,
+          project: { select: { id: true, name: true } },
+        },
+        take: perEntityLimit,
+      }),
+
+      // 8. AI Executions
+      prisma.aIExecution.findMany({
+        where: {
+          workspaceId,
+          OR: [
+            { prompt: { contains: trimmedQuery, mode: "insensitive" } },
+            { finalResponse: { contains: trimmedQuery, mode: "insensitive" } },
+          ],
+        },
+        select: {
+          id: true,
+          prompt: true,
+          agentId: true,
+          status: true,
+          createdAt: true,
+        },
+        take: perEntityLimit,
+      }),
+    ]);
+
+    // Format Projects
+    const projectResults: SearchResultItem[] = projects.map((p: any) => ({
+      id: p.id,
+      entityType: "project",
+      title: p.name,
+      subtitle: p.description ? p.description.slice(0, 80) : undefined,
+      status: p.status,
+      badge: p.health || "Project",
+      navigationTarget: {
+        tab: "projects",
+        entityId: p.id,
+      },
+    }));
+
+    // Format Tasks
+    const taskResults: SearchResultItem[] = tasks.map((t: any) => ({
+      id: t.id,
+      entityType: "task",
+      title: t.title,
+      subtitle: t.description ? t.description.slice(0, 80) : `Priority: ${t.priority || "MEDIUM"}`,
+      status: t.status,
+      badge: t.priority || "Task",
+      navigationTarget: {
+        tab: "tasks",
+        entityId: t.id,
+      },
+    }));
+
+    // Format CRM Entities (Customers, Contacts, Leads, Deals)
+    const crmResults: SearchResultItem[] = [
+      ...customers.map((c: any) => ({
+        id: c.id,
+        entityType: "customer" as const,
+        title: c.companyName,
+        subtitle: c.contactPerson ? `Contact: ${c.contactPerson}` : c.email || undefined,
+        badge: "Customer",
+        navigationTarget: {
+          tab: "crm" as const,
+          entityId: c.id,
+        },
+      })),
+      ...contacts.map((c: any) => ({
+        id: c.id,
+        entityType: "contact" as const,
+        title: `${c.firstName} ${c.lastName}`,
+        subtitle: c.jobTitle ? `${c.jobTitle} • ${c.customer?.companyName || ""}` : c.email || undefined,
+        badge: "Contact",
+        navigationTarget: {
+          tab: "crm" as const,
+          entityId: c.id,
+        },
+      })),
+      ...leads.map((l: any) => ({
+        id: l.id,
+        entityType: "lead" as const,
+        title: l.title,
+        subtitle: `$${l.dealValue.toLocaleString()} • ${l.customer?.companyName || "Lead"}`,
+        status: l.stage,
+        badge: "Lead",
+        navigationTarget: {
+          tab: "crm" as const,
+          entityId: l.id,
+        },
+      })),
+      ...deals.map((d: any) => ({
+        id: d.id,
+        entityType: "deal" as const,
+        title: d.title,
+        subtitle: `$${d.dealValue.toLocaleString()} • ${d.customer?.companyName || "Deal"}`,
+        status: d.stage,
+        badge: "Deal",
+        navigationTarget: {
+          tab: "crm" as const,
+          entityId: d.id,
+        },
+      })),
+    ];
+
+    // Format Milestones
+    const milestoneResults: SearchResultItem[] = milestones.map((m: any) => ({
+      id: m.id,
+      entityType: "milestone",
+      title: m.title,
+      subtitle: m.project ? `Project: ${m.project.name}` : undefined,
+      status: m.status,
+      badge: "Milestone",
+      navigationTarget: {
+        tab: "projects",
+        entityId: m.project?.id || m.id,
+      },
+    }));
+
+    // Format AI Executions
+    const aiResults: SearchResultItem[] = aiExecutions.map((a: any) => ({
+      id: a.id,
+      entityType: "ai_execution",
+      title: a.prompt.length > 60 ? `${a.prompt.slice(0, 60)}...` : a.prompt,
+      subtitle: `Agent: ${a.agentId} • ${new Date(a.createdAt).toLocaleDateString()}`,
+      status: a.status,
+      badge: "AI Session",
+      navigationTarget: {
+        tab: "ai",
+        entityId: a.id,
+      },
+    }));
+
+
+    // Apply limits per group
+    const slicedProjects = projectResults.slice(0, limit);
+    const slicedTasks = taskResults.slice(0, limit);
+    const slicedCrm = crmResults.slice(0, limit);
+    const slicedMilestones = milestoneResults.slice(0, limit);
+    const slicedAi = aiResults.slice(0, limit);
+
+    const totalResults =
+      slicedProjects.length +
+      slicedTasks.length +
+      slicedCrm.length +
+      slicedMilestones.length +
+      slicedAi.length;
+
+    return {
+      query: trimmedQuery,
+      totalResults,
+      resultsByGroup: {
+        projects: slicedProjects,
+        tasks: slicedTasks,
+        crm: slicedCrm,
+        milestones: slicedMilestones,
+        ai: slicedAi,
+      },
+    };
   }
 }
+
 export const searchService = new SearchService();

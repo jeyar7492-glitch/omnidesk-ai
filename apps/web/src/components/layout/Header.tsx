@@ -2,7 +2,175 @@ import React from "react";
 import { useWorkspace } from "../../context/WorkspaceContext";
 import { StatusBadge } from "../common/StatusBadge";
 import { RefreshCw, ShieldCheck, LogOut, User, Search } from "lucide-react";
-export const Header: React.FC<{ activeTabTitle: string; onSearch?: () => void }> = ({ activeTabTitle, onSearch }) => {
- const { wsStatus, apiStatus, refreshHealth, context, user, logout } = useWorkspace();
- return <header className="top-header"><div style={{display:"flex",alignItems:"center",gap:"1rem"}}><h2 style={{fontSize:"1.1rem",fontWeight:600,margin:0}}>{activeTabTitle}</h2><span style={{fontSize:".75rem",color:"var(--text-muted)",background:"var(--bg-elevated)",padding: ".2rem .5rem",borderRadius:4,fontFamily:"var(--font-mono)"}}>ws: {context.workspaceId.slice(0,8)}...</span></div><div style={{display:"flex",alignItems:"center",gap:".6rem"}}>{onSearch&&<button onClick={onSearch} title="Global Search (Ctrl+K)" style={{display:"flex",alignItems:"center",gap:8,padding:".4rem .7rem",background:"var(--bg-elevated)",border:"1px solid var(--border-subtle)",borderRadius:6,color:"var(--text-secondary)",cursor:"pointer"}}><Search size={14}/> Search <kbd style={{fontSize:10}}>Ctrl K</kbd></button>}<StatusBadge status={wsStatus==="connected"?"online":wsStatus==="connecting"?"pending":"danger"} label={wsStatus==="connected"?"Realtime WS":wsStatus==="connecting"?"WS Connecting":"WS Offline"}/><StatusBadge status={apiStatus==="online"?"online":apiStatus==="checking"?"pending":"danger"} label={apiStatus==="online"?"API Online":apiStatus==="checking"?"Checking":"API Offline"}/><div style={{display:"flex",alignItems:"center",gap:4,background:"var(--bg-elevated)",padding:".3rem .75rem",borderRadius:6,fontSize:12,color:"var(--text-secondary)"}}><ShieldCheck size={14} color="var(--brand-cyan)"/><span>{context.userRole}</span></div>{user&&<div style={{display:"flex",alignItems:"center",gap:6,fontSize:12}}><User size={14}/><span>{user.firstName} {user.lastName}</span></div>}<button onClick={refreshHealth} title="Refresh Backend Status" style={{padding:".4rem",background:"var(--bg-elevated)",borderRadius:6,border:"1px solid var(--border-subtle)",cursor:"pointer",color:"var(--text-secondary)"}}><RefreshCw size={14}/></button><button onClick={logout} title="Sign Out" style={{padding:".4rem .65rem",background:"rgba(239,68,68,.1)",borderRadius:6,border:"1px solid rgba(239,68,68,.3)",display:"flex",alignItems:"center",gap:5,cursor:"pointer",color:"#fca5a5",fontSize:12,fontWeight:600}}><LogOut size={13}/>Logout</button></div></header>;
+
+export const Header: React.FC<{ activeTabTitle: string; onOpenSearch?: () => void }> = ({
+  activeTabTitle,
+  onOpenSearch,
+}) => {
+  const { wsStatus, apiStatus, refreshHealth, context, user, logout } = useWorkspace();
+  const isMac = typeof window !== "undefined" && navigator?.platform?.toUpperCase()?.indexOf("MAC") >= 0;
+
+  return (
+    <header className="top-header">
+      <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+        <h2 style={{ fontSize: "1.1rem", fontWeight: 600, letterSpacing: "-0.01em", margin: 0 }}>
+          {activeTabTitle}
+        </h2>
+        <span
+          style={{
+            fontSize: "0.75rem",
+            color: "var(--text-muted)",
+            background: "var(--bg-elevated)",
+            padding: "0.2rem 0.5rem",
+            borderRadius: "4px",
+            fontFamily: "var(--font-mono)",
+          }}
+        >
+          ws: {context.workspaceId.slice(0, 8)}...
+        </span>
+
+        {/* Global Search Trigger Bar */}
+        <button
+          onClick={onOpenSearch}
+          title="Search workspace (Ctrl+K or ⌘K)"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "0.5rem",
+            background: "var(--bg-elevated)",
+            border: "1px solid var(--border-subtle)",
+            padding: "0.3rem 0.75rem",
+            borderRadius: "8px",
+            cursor: "pointer",
+            color: "var(--text-secondary)",
+            fontSize: "0.8rem",
+            marginLeft: "0.5rem",
+          }}
+        >
+          <Search size={13} color="var(--brand-cyan)" />
+          <span style={{ color: "var(--text-muted)" }}>Search workspace...</span>
+          <kbd
+            style={{
+              background: "var(--bg-card)",
+              border: "1px solid var(--border-subtle)",
+              borderRadius: "4px",
+              padding: "0.1rem 0.35rem",
+              fontSize: "0.65rem",
+              fontFamily: "var(--font-mono)",
+              color: "var(--text-muted)",
+            }}
+          >
+            {isMac ? "⌘K" : "Ctrl K"}
+          </kbd>
+        </button>
+      </div>
+
+      <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+
+        {/* Realtime WebSocket Badge */}
+        <StatusBadge
+          status={wsStatus === "connected" ? "online" : wsStatus === "connecting" ? "pending" : "danger"}
+          label={wsStatus === "connected" ? "Realtime WS" : wsStatus === "connecting" ? "WS Connecting" : "WS Offline"}
+        />
+
+        {/* API Backend Health Badge */}
+        <StatusBadge
+          status={apiStatus === "online" ? "online" : apiStatus === "checking" ? "pending" : "danger"}
+          label={apiStatus === "online" ? "API Online" : apiStatus === "checking" ? "Checking" : "API Offline"}
+        />
+
+        {/* User Role Badge */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "0.4rem",
+            background: "var(--bg-elevated)",
+            padding: "0.3rem 0.75rem",
+            borderRadius: "6px",
+            border: "1px solid var(--border-subtle)",
+            fontSize: "0.8rem",
+            color: "var(--text-secondary)",
+          }}
+        >
+          <ShieldCheck size={14} color="var(--brand-cyan)" />
+          <span>{context.userRole}</span>
+        </div>
+
+        {/* User Profile Pill */}
+        {user && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              background: "var(--bg-card)",
+              padding: "0.25rem 0.65rem",
+              borderRadius: "20px",
+              border: "1px solid var(--border-subtle)",
+              fontSize: "0.8rem",
+            }}
+          >
+            <div
+              style={{
+                width: "22px",
+                height: "22px",
+                borderRadius: "50%",
+                background: "var(--brand-indigo)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <User size={12} color="#ffffff" />
+            </div>
+            <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>
+              {user.firstName} {user.lastName}
+            </span>
+          </div>
+        )}
+
+        {/* Refresh Health Button */}
+        <button
+          onClick={refreshHealth}
+          title="Refresh Backend Status"
+          style={{
+            padding: "0.4rem",
+            background: "var(--bg-elevated)",
+            borderRadius: "6px",
+            border: "1px solid var(--border-subtle)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            cursor: "pointer",
+            color: "var(--text-secondary)",
+          }}
+        >
+          <RefreshCw size={14} />
+        </button>
+
+        {/* Logout Button */}
+        <button
+          onClick={logout}
+          title="Sign Out"
+          style={{
+            padding: "0.4rem 0.65rem",
+            background: "rgba(239, 68, 68, 0.1)",
+            borderRadius: "6px",
+            border: "1px solid rgba(239, 68, 68, 0.3)",
+            display: "flex",
+            alignItems: "center",
+            gap: "0.35rem",
+            cursor: "pointer",
+            color: "#fca5a5",
+            fontSize: "0.8rem",
+            fontWeight: 600,
+          }}
+        >
+          <LogOut size={13} />
+          <span>Logout</span>
+        </button>
+      </div>
+    </header>
+  );
 };

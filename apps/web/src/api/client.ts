@@ -13,7 +13,10 @@ import {
   AuthResponse,
   AuthTokens,
   SystemRole,
+  DashboardMetrics,
+  GlobalSearchResponse,
 } from "@omnidesk/shared-types";
+
 
 export interface WorkspaceContextData {
   workspaceId: string;
@@ -389,6 +392,17 @@ export class ApiClient {
     return Array.isArray(res) ? res : res.items || res.staleDeals || [];
   }
 
+  // ── Dashboard Endpoints ──────────────────────────────────────────────────
+  public async getDashboardMetrics(): Promise<DashboardMetrics> {
+    return this.request<DashboardMetrics>("/dashboard/metrics");
+  }
+
+  // ── Global Search Endpoints ───────────────────────────────────────────────
+  public async globalSearch(query: string, limit: number = 20): Promise<GlobalSearchResponse> {
+    const params = new URLSearchParams({ q: query, limit: limit.toString() });
+    return this.request<GlobalSearchResponse>(`/search?${params.toString()}`);
+  }
+
   // ── Health Endpoint ─────────────────────────────────────────────────────
   public async getHealth(): Promise<{ status: string }> {
     return this.request<{ status: string }>("/health");
@@ -396,4 +410,5 @@ export class ApiClient {
 }
 
 export const apiClient = new ApiClient();
+
 

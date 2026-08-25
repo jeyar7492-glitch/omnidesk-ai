@@ -1,13 +1,28 @@
 import { Request, Response, NextFunction } from "express";
+import { searchService } from "../services/search.service";
 import { GlobalSearchQuerySchema } from "@omnidesk/validation";
 import { AuthenticatedRequest } from "../../middleware/auth_context";
-import { searchService } from "../services/search.service";
 
-export async function search(req: Request, res: Response, next: NextFunction) {
-  try {
-    const authReq = req as AuthenticatedRequest;
-    const { q, limit } = GlobalSearchQuerySchema.parse(req.query);
-    const data = await searchService.search(authReq.context.workspaceId, q, limit);
-    res.json({ success: true, data });
-  } catch (error) { next(error); }
+export class SearchController {
+  public static async search(req: Request, res: Response, next: NextFunction) {
+    try {
+      const authReq = req as AuthenticatedRequest;
+      const workspaceId = authReq.context.workspaceId;
+
+      const validated = GlobalSearchQuerySchema.parse({
+        q: req.query.q,
+        limit: req.query.limit,
+        types: req.query.types,
+      });
+
+      const results = await searchService.search(workspaceId, validated.q, validated.limit);
+
+      return res.status(200).json({
+        success: true,
+        data: results,
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
 }

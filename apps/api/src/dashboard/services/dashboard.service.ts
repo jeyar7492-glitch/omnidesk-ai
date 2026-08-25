@@ -1,86 +1,347 @@
+import { DashboardMetrics, SystemRole } from "@omnidesk/shared-types";
 import { prisma } from "../../lib/prisma";
+import { logger } from "../../lib/logger";
 
 export class DashboardService {
-  public async getDashboardMetrics(workspaceId: string) {
+  /**
+   * Aggregate complete real-time dashboard metrics for a workspace.
+   */
+  public async getDashboardMetrics(workspaceId: string): Promise<DashboardMetrics> {
     const now = new Date();
-    const [projects, tasks, deals, leads, executions, approvals, members, activities] = await Promise.all([
-      prisma.project.findMany({ where: { workspaceId, isArchived: false }, orderBy: { updatedAt: "desc" }, take: 50 }),
-      prisma.task.findMany({ where: { workspaceId, isArchived: false }, orderBy: { updatedAt: "desc" }, take: 1000 }),
-      prisma.deal.findMany({ where: { workspaceId }, orderBy: { updatedAt: "desc" }, take: 500, include: { customer: { select: { companyName: true } } } }),
-      prisma.lead.count({ where: { workspaceId } }),
-      prisma.aIExecution.findMany({ where: { workspaceId }, orderBy: { createdAt: "desc" }, take: 20 }),
-      prisma.aIApprovalRequest.findMany({ where: { workspaceId, status: "PENDING" }, orderBy: { createdAt: "desc" }, take: 20 }),
-      prisma.workspaceMember.findMany({ where: { workspaceId }, include: { user: { select: { id: true, firstName: true, lastName: true, email: true } } } }),
-      prisma.auditEvent.findMany({ where: { workspaceId }, orderBy: { createdAt: "desc" }, take: 30, include: { user: { select: { firstName: true, lastName: true } } } }),
+
+    // 1. Projects aggregation
+    const [allProjects, allMilestones] = await Promise.all([
+      prisma.project.findMany({
+        where: { workspaceId, isArchived: false },
+        include: {
+          tasks: { select: { id: true, status: true } },
+          milestones: { select: { id: true, status: true, progress: true } },
+        },
+        orderBy: { updatedAt: "desc" },
+      }),
+      prisma.milestone.findMany({
+        where: { workspaceId },
+        include: {
+          project: { select: { name: true } },
+        },
+        orderBy: { dueDate: "asc" },
+      }),
     ]);
 
-    const activeProjects = projects.filter((p) => p.status === "ACTIVE").length;
-    const completedProjects = projects.filter((p) => p.status === "COMPLETED").length;
-    const overdueTasks = tasks.filter((t) => t.status !== "done" && !!t.dueDate && t.dueDate < now).length;
-    const blockedTasks = tasks.filter((t) => t.status !== "done" && t.isBlocked).length;
-    const openDeals = deals.filter((d) => !["WON", "LOST"].includes(d.stage)).length;
-    const pipelineDeals = deals.filter((d) => !["WON", "LOST"].includes(d.stage));
-    const pipelineValue = pipelineDeals.reduce((s, d) => s + d.dealValue, 0);
-    const weightedForecast = pipelineDeals.reduce((s, d) => s + d.dealValue * (d.probability / 100), 0);
-    const wonRevenue = deals.filter((d) => d.stage === "WON").reduce((s, d) => s + d.dealValue, 0);
+    const totalProjects = allProjects.length;
+    const activeProjectsList = allProjects.filter(
+      (p) => p.status === "ACTIVE" || p.status === "PLANNING" || (p.status as string) === "IN_PROGRESS"
+    );
+    const completedProjectsCount = allProjects.filter(
+      (p) => p.status === "COMPLETED" || (p.status as string) === "done"
+    ).length;
 
-    const taskStatus: Record<string, number> = {};
-    const taskPriority: Record<string, number> = {};
-    for (const task of tasks) {
-      taskStatus[task.status] = (taskStatus[task.status] || 0) + 1;
-      taskPriority[task.priority] = (taskPriority[task.priority] || 0) + 1;
-    }
+    const formattedActiveProjects = activeProjectsList.slice(0, 6).map((p) => {
+      let progressPercentage = 0;
+      if (p.tasks.length > 0) {
+        const doneTasks = p.tasks.filter((t) => t.status === "done").length;
+        progressPercentage = Math.round((doneTasks / p.tasks.length) * 100);
+      } else if (p.milestones.length > 0) {
+        const totalProgress = p.milestones.reduce((acc, m) => acc + (m.progress || 0), 0);
+        progressPercentage = Math.round(totalProgress / p.milestones.length);
+      }
 
-    const stages: Record<string, { count: number; value: number; weighted: number }> = {};
-    for (const deal of deals) {
-      const stage = String(deal.stage);
-      stages[stage] ||= { count: 0, value: 0, weighted: 0 };
-      stages[stage].count += 1;
-      stages[stage].value += deal.dealValue;
-      stages[stage].weighted += deal.dealValue * (deal.probability / 100);
-    }
-
-    const projectOverview = await Promise.all(projects.slice(0, 12).map(async (p) => {
-      const projectTasks = tasks.filter((t) => t.projectId === p.id);
-      const progress = projectTasks.length ? Math.round(projectTasks.filter((t) => t.status === "done").length / projectTasks.length * 100) : 0;
-      const milestones = await prisma.milestone.findMany({ where: { workspaceId, projectId: p.id }, select: { dueDate: true, status: true } });
       return {
-        id: p.id, name: p.name, status: p.status, health: p.health, progress,
-        deadline: p.deadline?.toISOString(),
-        overdueMilestones: milestones.filter((m) => m.status !== "completed" && !!m.dueDate && m.dueDate < now).length,
-        upcomingMilestones: milestones.filter((m) => m.status !== "completed" && !!m.dueDate && m.dueDate >= now).length,
+        id: p.id,
+        name: p.name,
+        status: p.status,
+        health: p.health || "ON_TRACK",
+        budget: p.budget,
+        spent: p.spent,
+        progressPercentage,
+        deadline: p.deadline ? p.deadline.toISOString() : null,
       };
-    }));
-
-    const teamWorkload = members.map((member) => {
-      const mine = tasks.filter((t) => t.assigneeId === member.userId && t.status !== "done");
-      const overdue = mine.filter((t) => !!t.dueDate && t.dueDate < now).length;
-      const estimatedHours = mine.reduce((s, t) => s + (t.estimatedHours || 0), 0);
-      return { userId: member.userId, name: `${member.user.firstName} ${member.user.lastName}`.trim(), role: member.role, activeTasks: mine.length, overdueTasks: overdue, estimatedHours, utilization: Math.min(100, Math.round(estimatedHours / 40 * 100)) };
     });
 
-    const aiStats: Record<string, number> = {};
-    const allExecutionCount = await prisma.aIExecution.count({ where: { workspaceId } });
-    for (const execution of executions) aiStats[execution.status] = (aiStats[execution.status] || 0) + 1;
+    const upcomingMilestones = allMilestones
+      .filter((m) => m.status !== "COMPLETED" && (!m.dueDate || m.dueDate >= now))
+      .slice(0, 5)
+      .map((m) => ({
+        id: m.id,
+        title: m.title,
+        projectName: m.project?.name || "Independent",
+        dueDate: m.dueDate ? m.dueDate.toISOString() : new Date().toISOString(),
+        status: m.status,
+      }));
+
+    const overdueMilestonesCount = allMilestones.filter(
+      (m) => m.status !== "COMPLETED" && m.dueDate && m.dueDate < now
+    ).length;
+
+    // 2. Tasks aggregation
+    const allTasks = await prisma.task.findMany({
+      where: { workspaceId, isArchived: false },
+      select: {
+        id: true,
+        title: true,
+        status: true,
+        priority: true,
+        dueDate: true,
+        isBlocked: true,
+        estimatedHours: true,
+        assigneeId: true,
+      },
+    });
+
+    const totalTasks = allTasks.length;
+    let overdueTasksCount = 0;
+    let blockedTasksCount = 0;
+    let completedTasksCount = 0;
+
+    const taskStatusCounts = {
+      todo: 0,
+      in_progress: 0,
+      review: 0,
+      testing: 0,
+      done: 0,
+      backlog: 0,
+    };
+
+    const taskPriorityCounts = {
+      LOW: 0,
+      MEDIUM: 0,
+      HIGH: 0,
+      URGENT: 0,
+    };
+
+    for (const task of allTasks) {
+      const st = task.status.toLowerCase();
+      if (st === "todo") taskStatusCounts.todo++;
+      else if (st === "in_progress" || st === "inprogress") taskStatusCounts.in_progress++;
+      else if (st === "review" || st === "in_review") taskStatusCounts.review++;
+      else if (st === "testing") taskStatusCounts.testing++;
+      else if (st === "done" || st === "completed") {
+        taskStatusCounts.done++;
+        completedTasksCount++;
+      } else {
+        taskStatusCounts.backlog++;
+      }
+
+      const pr = (task.priority || "MEDIUM").toUpperCase();
+      if (pr === "LOW") taskPriorityCounts.LOW++;
+      else if (pr === "HIGH") taskPriorityCounts.HIGH++;
+      else if (pr === "URGENT") taskPriorityCounts.URGENT++;
+      else taskPriorityCounts.MEDIUM++;
+
+      if (task.status !== "done" && task.dueDate && task.dueDate < now) {
+        overdueTasksCount++;
+      }
+      if (task.isBlocked) {
+        blockedTasksCount++;
+      }
+    }
+
+    // 3. CRM & Sales Pipeline aggregation
+    const [deals, leads] = await Promise.all([
+      prisma.deal.findMany({
+        where: { workspaceId },
+        include: {
+          customer: { select: { companyName: true } },
+        },
+        orderBy: { updatedAt: "desc" },
+      }),
+      prisma.lead.findMany({
+        where: { workspaceId },
+        select: { id: true, createdAt: true },
+      }),
+    ]);
+
+    let pipelineValue = 0;
+    let weightedForecast = 0;
+    let wonRevenue = 0;
+    let openDealsCount = 0;
+    let staleDealsCount = 0;
+    const staleThreshold = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+    for (const deal of deals) {
+      if (deal.stage === "WON") {
+        wonRevenue += deal.dealValue;
+      } else if (deal.stage !== "LOST") {
+        pipelineValue += deal.dealValue;
+        weightedForecast += (deal.dealValue * (deal.probability || 0)) / 100;
+        openDealsCount++;
+        if (deal.updatedAt < staleThreshold) {
+          staleDealsCount++;
+        }
+      }
+    }
+
+    const recentDeals = deals.slice(0, 5).map((d) => ({
+      id: d.id,
+      title: d.title,
+      dealValue: d.dealValue,
+      stage: d.stage,
+      probability: d.probability,
+      companyName: d.customer?.companyName || null,
+    }));
+
+    const newLeadsCount = leads.length;
+
+    // 4. AI Executions & Approvals aggregation
+    const [aiExecutions, pendingApprovals] = await Promise.all([
+      prisma.aIExecution.findMany({
+        where: { workspaceId },
+        orderBy: { createdAt: "desc" },
+        take: 20,
+      }),
+      prisma.aIApprovalRequest.findMany({
+        where: { workspaceId, status: "PENDING" },
+        orderBy: { createdAt: "desc" },
+      }),
+    ]);
+
+    const totalAIExecutions = await prisma.aIExecution.count({
+      where: { workspaceId },
+    });
+    const completedAIExecutions = await prisma.aIExecution.count({
+      where: { workspaceId, status: "COMPLETED" },
+    });
+    const failedAIExecutions = await prisma.aIExecution.count({
+      where: { workspaceId, status: "FAILED" },
+    });
+    const pendingAIExecutions = await prisma.aIExecution.count({
+      where: { workspaceId, status: "RUNNING" },
+    });
+
+    const recentAIExecutionsFormatted = aiExecutions.slice(0, 5).map((e: any) => ({
+      id: e.id,
+      prompt: e.prompt,
+      agentId: e.agentId,
+      status: e.status,
+      totalDurationMs: e.durationMs || undefined,
+      createdAt: e.createdAt.toISOString(),
+    }));
+
+    const pendingApprovalsFormatted = pendingApprovals.slice(0, 5).map((a: any) => ({
+      id: a.id,
+      actionName: a.actionName,
+      riskLevel: a.riskLevel,
+      createdAt: a.createdAt.toISOString(),
+    }));
+
+
+    // 5. Team Workload aggregation
+    const members = await prisma.workspaceMember.findMany({
+      where: { workspaceId },
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+      },
+    });
+
+    const teamWorkload = members.map((m) => {
+      const userTasks = allTasks.filter((t) => t.assigneeId === m.user.id);
+      const userTotal = userTasks.length;
+      const inProgress = userTasks.filter((t) => t.status === "in_progress").length;
+      const overdue = userTasks.filter((t) => t.status !== "done" && t.dueDate && t.dueDate < now).length;
+      const completed = userTasks.filter((t) => t.status === "done").length;
+      const estHours = userTasks.reduce((sum, t) => sum + (t.estimatedHours || 0), 0);
+
+      return {
+        userId: m.user.id,
+        name: `${m.user.firstName} ${m.user.lastName}`,
+        email: m.user.email,
+        role: m.role,
+        totalTasks: userTotal,
+        inProgressTasks: inProgress,
+        overdueTasks: overdue,
+        completedTasks: completed,
+        estimatedHoursTotal: estHours,
+      };
+    });
+
+    // 6. Unified Activity Feed
+    const auditEvents = await prisma.auditEvent.findMany({
+      where: { workspaceId },
+      include: {
+        user: { select: { firstName: true, lastName: true } },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 15,
+    });
+
+    const recentActivity = auditEvents.map((a) => {
+      let type: "project" | "task" | "deal" | "lead" | "ai" | "auth" | "approval" = "task";
+      if (a.action.startsWith("ai:")) {
+        type = a.action.includes("approval") ? "approval" : "ai";
+      } else if (a.action.startsWith("crm:") || a.action.startsWith("deal:")) {
+        type = "deal";
+      } else if (a.action.startsWith("project:")) {
+        type = "project";
+      } else if (a.action.startsWith("auth:")) {
+        type = "auth";
+      }
+
+      return {
+        id: a.id,
+        type,
+        title: a.action.replace(":", " ").replace(/_/g, " ").toUpperCase(),
+        description: `Entity: ${a.entityType} ${a.entityId || ""}`,
+        timestamp: a.createdAt.toISOString(),
+        user: a.user ? `${a.user.firstName} ${a.user.lastName}` : "System Operator",
+      };
+    });
 
     return {
-      kpis: { totalProjects: projects.length, activeProjects, completedProjects, totalTasks: tasks.length, overdueTasks, blockedTasks, pipelineValue, weightedForecast, openDeals, leads, aiExecutions: allExecutionCount, pendingApprovals: approvals.length },
-      projectOverview,
-      taskOverview: { status: taskStatus, priority: taskPriority },
-      crmOverview: {
-        stages,
-        wonRevenue,
-        staleDeals: deals.filter((d) => d.stage !== "WON" && d.stage !== "LOST" && d.updatedAt < new Date(now.getTime() - 14 * 86400000)).length,
-        recentDeals: deals.slice(0, 8).map((d) => ({ id: d.id, title: d.title, stage: d.stage, dealValue: d.dealValue, probability: d.probability, expectedClose: d.expectedClose?.toISOString(), closedAt: d.closedAt?.toISOString(), priority: d.priority, customerName: d.customer?.companyName })),
+      kpis: {
+        totalProjects,
+        activeProjects: activeProjectsList.length,
+        completedProjects: completedProjectsCount,
+        totalTasks,
+        overdueTasks: overdueTasksCount,
+        blockedTasks: blockedTasksCount,
+        completedTasks: completedTasksCount,
+        activePipelineValue: Math.round(pipelineValue * 100) / 100,
+        weightedPipelineForecast: Math.round(weightedForecast * 100) / 100,
+        openDeals: openDealsCount,
+        newLeads: newLeadsCount,
+        totalTeamMembers: members.length,
+        aiExecutionsCount: totalAIExecutions,
+        aiPendingApprovals: pendingApprovals.length,
       },
-      aiActivity: {
-        recent: executions.map((e) => ({ id: e.id, prompt: e.prompt, status: e.status, createdAt: e.createdAt.toISOString(), durationMs: e.durationMs || undefined })),
-        stats: aiStats,
-        pendingApprovals: approvals.map((a) => ({ id: a.id, actionName: a.actionName, riskLevel: a.riskLevel, createdAt: a.createdAt.toISOString() })),
+      projectsSummary: {
+        activeProjects: formattedActiveProjects,
+        upcomingMilestones,
+        overdueMilestonesCount,
+      },
+      tasksSummary: {
+        byStatus: taskStatusCounts,
+        byPriority: taskPriorityCounts,
+        overdueCount: overdueTasksCount,
+        blockedCount: blockedTasksCount,
+      },
+      crmSummary: {
+        pipelineValue: Math.round(pipelineValue * 100) / 100,
+        weightedForecast: Math.round(weightedForecast * 100) / 100,
+        openDealsCount,
+        wonRevenue: Math.round(wonRevenue * 100) / 100,
+        staleDealsCount,
+        newLeadsCount,
+        recentDeals,
+      },
+      aiSummary: {
+        recentExecutions: recentAIExecutionsFormatted,
+        pendingApprovals: pendingApprovalsFormatted,
+        executionCounts: {
+          total: totalAIExecutions,
+          completed: completedAIExecutions,
+          failed: failedAIExecutions,
+          pending: pendingAIExecutions,
+        },
       },
       teamWorkload,
-      recentActivity: activities.map((a) => ({ id: a.id, action: a.action, entityType: a.entityType, entityId: a.entityId || undefined, userName: a.user ? `${a.user.firstName} ${a.user.lastName}`.trim() : undefined, createdAt: a.createdAt.toISOString(), details: a.details })),
-      generatedAt: now.toISOString(),
+      recentActivity,
     };
   }
 }
