@@ -10,10 +10,13 @@
   "scripts": {
     "dev:api": "npm --workspace=@omnidesk/api run dev",
     "dev:web": "npm --workspace=@omnidesk/web run dev",
+    "start": "node apps/api/dist/server.js",
+    "start:api": "npm --workspace=@omnidesk/api run start",
     "build:packages": "npm --workspace=@omnidesk/shared-types run build && npm --workspace=@omnidesk/validation run build && npm --workspace=@omnidesk/config run build",
     "build": "npm run build:packages && npm --workspace=@omnidesk/api run build && npm --workspace=@omnidesk/web run build",
     "typecheck": "npm --workspace=@omnidesk/shared-types run typecheck && npm --workspace=@omnidesk/validation run typecheck && npm --workspace=@omnidesk/config run typecheck && npm --workspace=@omnidesk/api run typecheck && npm --workspace=@omnidesk/web run typecheck",
     "test": "npm --workspace=@omnidesk/api run test && npm --workspace=@omnidesk/web run test"
+
   },
   "devDependencies": {
     "typescript": "^5.4.5"

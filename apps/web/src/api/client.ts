@@ -26,8 +26,14 @@ export interface WorkspaceContextData {
 }
 
 export class ApiClient {
-  private baseUrl = "/api/v1";
+  private baseUrl = (() => {
+    const metaEnv = typeof import.meta !== "undefined" ? (import.meta as any).env : undefined;
+    const origin = (metaEnv?.VITE_API_BASE_URL || metaEnv?.VITE_API_URL) || "";
+    return `${origin.replace(/\/+$/, "")}/api/v1`;
+  })();
   private accessToken: string | null = null;
+
+
   private refreshTokenString: string | null = null;
   private isRefreshing = false;
 

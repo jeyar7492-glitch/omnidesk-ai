@@ -27,8 +27,6 @@ export class WebSocketClient {
 
     this.setStatus("connecting");
 
-    const protocol = window.location?.protocol === "https:" ? "wss:" : "ws:";
-    const host = window.location?.host || "localhost:4000";
     let token = "";
     try {
       token = localStorage.getItem("omnidesk_access_token") || "";
@@ -36,7 +34,26 @@ export class WebSocketClient {
       // Ignore
     }
     const tokenQuery = token ? `?token=${encodeURIComponent(token)}` : "";
-    const wsUrl = `${protocol}//${host}/ws${tokenQuery}`;
+
+    let baseWsUrl = "";
+    const metaEnv = typeof import.meta !== "undefined" ? (import.meta as any).env : undefined;
+    if (metaEnv?.VITE_WS_URL) {
+      baseWsUrl = metaEnv.VITE_WS_URL.replace(/\/+$/, "");
+    } else if (metaEnv?.VITE_API_BASE_URL || metaEnv?.VITE_API_URL) {
+      const apiUrl = (metaEnv.VITE_API_BASE_URL || metaEnv.VITE_API_URL).replace(/\/+$/, "");
+      baseWsUrl = apiUrl.replace(/^http:/, "ws:").replace(/^https:/, "wss:");
+    } else if (typeof window !== "undefined") {
+      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+      const host = window.location.host || "localhost:4000";
+      baseWsUrl = `${protocol}//${host}`;
+    } else {
+      baseWsUrl = "ws://localhost:4000";
+    }
+
+
+    const wsEndpoint = baseWsUrl.endsWith("/ws") ? baseWsUrl : `${baseWsUrl}/ws`;
+    const wsUrl = `${wsEndpoint}${tokenQuery}`;
+
 
 
     try {
