@@ -1,0 +1,21 @@
+{
+  "name": "omnidesk-ai-monorepo",
+  "version": "2.0.0",
+  "private": true,
+  "description": "OmniDesk AI — Enterprise Work Operating System",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:api": "npm --workspace=@omnidesk/api run dev",
+    "dev:web": "npm --workspace=@omnidesk/web run dev",
+    "build:packages": "npm --workspace=@omnidesk/shared-types run build && npm --workspace=@omnidesk/validation run build && npm --workspace=@omnidesk/config run build",
+    "build": "npm run build:packages && npm --workspace=@omnidesk/api run build && npm --workspace=@omnidesk/web run build",
+    "typecheck": "npm --workspace=@omnidesk/shared-types run typecheck && npm --workspace=@omnidesk/validation run typecheck && npm --workspace=@omnidesk/config run typecheck && npm --workspace=@omnidesk/api run typecheck && npm --workspace=@omnidesk/web run typecheck",
+    "test": "npm --workspace=@omnidesk/api run test && npm --workspace=@omnidesk/web run test"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.5"
+  }
+}

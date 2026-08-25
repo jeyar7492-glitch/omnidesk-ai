@@ -1,0 +1,719 @@
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum RoleType {
+  OWNER
+  ADMIN
+  MANAGER
+  MEMBER
+  VIEWER
+  FINANCE
+}
+
+enum DealStage {
+  QUALIFICATION
+  CONTACTED
+  PROPOSAL
+  NEGOTIATION
+  WON
+  LOST
+}
+
+enum ProjectStatus {
+  PLANNING
+  ACTIVE
+  ON_HOLD
+  COMPLETED
+  CANCELLED
+}
+
+enum PriorityLevel {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum InvoiceStatus {
+  DRAFT
+  ISSUED
+  PARTIALLY_PAID
+  PAID
+  OVERDUE
+  VOID
+}
+
+enum RiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  EXPIRED
+}
+
+model User {
+  id               String            @id @default(auto()) @map("_id") @db.ObjectId
+  email            String            @unique
+  passwordHash     String
+  firstName        String
+  lastName         String
+  avatarUrl        String?
+  isActive         Boolean           @default(true)
+  isVerified       Boolean           @default(false)
+  lastLoginAt      DateTime?
+  memberships      WorkspaceMember[]
+  createdTasks     Task[]            @relation("TaskReporter")
+  assignedTasks    Task[]            @relation("TaskAssignee")
+  managedProjects  Project[]         @relation("ProjectManager")
+  taskComments     TaskComment[]
+  chatMessages     ChatMessage[]
+  auditEvents      AuditEvent[]
+  aiConversations  AIConversation[]
+  refreshTokens    RefreshToken[]
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+}
+
+model RefreshToken {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  token     String   @unique
+  userId    String   @db.ObjectId
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  isRevoked Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model Organization {
+  id         String      @id @default(auto()) @map("_id") @db.ObjectId
+  name       String
+  slug       String      @unique
+  plan       String      @default("enterprise")
+  workspaces Workspace[]
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+}
+
+model Workspace {
+  id              String            @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId  String            @db.ObjectId
+  organization    Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name            String
+  slug            String
+  description     String?
+  members         WorkspaceMember[]
+  customers       Customer[]
+  contacts        Contact[]
+  leads           Lead[]
+  deals           Deal[]
+  activities      CRMActivity[]
+  projects        Project[]
+  boards          Board[]
+  tasks           Task[]
+  invoices        Invoice[]
+  expenses        Expense[]
+  vendors         Vendor[]
+  documents       Document[]
+  channels        Channel[]
+  meetings        Meeting[]
+  automations     AutomationRule[]
+  auditEvents     AuditEvent[]
+  notifications   Notification[]
+  aiConversations AIConversation[]
+  aiApprovals     AIApprovalRequest[]
+  aiExecutions    AIExecution[]
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  @@unique([organizationId, slug])
+}
+
+model WorkspaceMember {
+  id          String     @id @default(auto()) @map("_id") @db.ObjectId
+  workspaceId String     @db.ObjectId
+  workspace   Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  userId      String     @db.ObjectId
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role        RoleType   @default(MEMBER)
+  permissions String[]   @default([])
+  joinedAt    DateTime   @default(now())
+
+  @@unique([workspaceId, userId])
+}
+
+model Customer {
+  id             String        @id @default(auto()) @map("_id") @db.ObjectId
+  workspaceId    String        @db.ObjectId
+  workspace      Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  companyName    String
+  contactPerson  String?
+  email          String?
+  phone          String?
+  website        String?
+  industry       String?
+  address        String?
+  city           String?
+  state          String?
+  country        String?
+  status         String        @default("active")
+  assignedUserId String?       @db.ObjectId
+  contacts       Contact[]
+  leads          Lead[]
+  deals          Deal[]
+  projects       Project[]
+  invoices       Invoice[]
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@index([workspaceId, companyName])
+}
+
+model Contact {
+  id          String        @id @default(auto()) @map("_id") @db.ObjectId
+  workspaceId String        @db.ObjectId
+  workspace   Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  customerId  String?       @db.ObjectId
+  customer    Customer?     @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  firstName   String
+  lastName    String
+  email       String?
+  phone       String?
+  jobTitle    String?
+  department  String?
+  isPrimary   Boolean       @default(false)
+  notes       String?
+  deals       Deal[]
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([workspaceId, email])
+  @@index([workspaceId, customerId])
+}
+
+model Lead {
+  id             String        @id @default(auto()) @map("_id") @db.ObjectId
+  workspaceId    String        @db.ObjectId
+  workspace      Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  customerId     String?       @db.ObjectId
+  customer       Customer?     @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  title          String
+  stage          DealStage     @default(QUALIFICATION)
+  dealValue      Float         @default(0.0)
+  probability    Int           @default(20)
+  expectedClose  DateTime?
+  priority       PriorityLevel @default(MEDIUM)
+  assignedUserId String?       @db.ObjectId
+  nextAction     String?
+  nextActionDate DateTime?
+  notes          String?
+  lostReason     String?
+  deals          Deal[]
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@index([workspaceId, stage])
+}
+
+model Deal {
+  id             String        @id @default(auto()) @map("_id") @db.ObjectId
+  workspaceId    String        @db.ObjectId
+  workspace      Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  customerId     String?       @db.ObjectId
+  customer       Customer?     @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  contactId      String?       @db.ObjectId
+  contact        Contact?      @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  leadId         String?       @db.ObjectId
+  lead           Lead?         @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  title          String
+  stage          DealStage     @default(QUALIFICATION)
+  dealValue      Float         @default(0.0)
+  probability    Int           @default(20)
+  expectedClose  DateTime?
+  closedAt       DateTime?
+  priority       PriorityLevel @default(MEDIUM)
+  assignedUserId String?       @db.ObjectId
+  lostReason     String?
+  notes          String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@index([workspaceId, stage])
+  @@index([workspaceId, expectedClose])
+  @@index([workspaceId, assignedUserId])
+}
+
+model CRMActivity {
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  workspaceId String    @db.ObjectId
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  entityType  String    // "lead" | "deal" | "customer" | "contact"
+  entityId    String    @db.ObjectId
+  type        String    @default("note") // "note" | "call" | "meeting" | "email" | "follow_up"
+  title       String
+  content     String?
+  dueDate     DateTime?
+  isCompleted Boolean   @default(false)
+  completedAt DateTime?
+  userId      String?   @db.ObjectId
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([workspaceId, entityType, entityId])
+  @@index([workspaceId, dueDate])
+}
+
+model Project {
+  id          String        @id @default(auto()) @map("_id") @db.ObjectId
+  workspaceId String        @db.ObjectId
+  workspace   Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  customerId  String?       @db.ObjectId
+  customer    Customer?     @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  name        String
+  description String?
+  status      ProjectStatus @default(PLANNING)
+  budget      Float         @default(0.0)
+  spent       Float         @default(0.0)
+  startDate   DateTime?
+  deadline    DateTime?
+  managerId   String?       @db.ObjectId
+  manager     User?         @relation("ProjectManager", fields: [managerId], references: [id], onDelete: SetNull)
+  milestones  Milestone[]
+  boards      Board[]
+  tasks       Task[]
+  invoices    Invoice[]
+  meetings    Meeting[]
+  health      String        @default("healthy")
+  isArchived  Boolean       @default(false)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([workspaceId, status])
+  @@index([workspaceId, isArchived])
+  @@index([workspaceId, managerId])
+}
+
+model Milestone {
+  id             String    @id @default(auto()) @map("_id") @db.ObjectId
+  workspaceId    String    @db.ObjectId
+  projectId      String    @db.ObjectId
+  project        Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title          String
+  description    String?
+  dueDate        DateTime?
+  status         String    @default("pending")
+  assignedUserId String?   @db.ObjectId
+  progress       Int       @default(0)
+  completedAt    DateTime?
+  tasks          Task[]
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([workspaceId, projectId])
+  @@index([workspaceId, status])
+}
+
+model Board {
+  id          String        @id @default(auto()) @map("_id") @db.ObjectId
+  workspaceId String        @db.ObjectId
+  workspace   Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  projectId   String?       @db.ObjectId
+  project     Project?      @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  name        String
+  description String?
+  isDefault   Boolean       @default(false)
+  columns     BoardColumn[]
+  tasks       Task[]
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+}
+
+model BoardColumn {
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  workspaceId String    @db.ObjectId
+  boardId     String    @db.ObjectId
+  board       Board     @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  name        String
+  key         String
+  position    Int       @default(0)
+  wipLimit    Int?
+  color       String?
+  tasks       Task[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([boardId, key])
+}
+
+model Task {
+  id             String          @id @default(auto()) @map("_id") @db.ObjectId
+  workspaceId    String          @db.ObjectId
+  workspace      Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  projectId      String?         @db.ObjectId
+  project        Project?        @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  milestoneId    String?         @db.ObjectId
+  milestone      Milestone?      @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
+  boardId        String?         @db.ObjectId
+  board          Board?          @relation(fields: [boardId], references: [id], onDelete: SetNull)
+  columnId       String?         @db.ObjectId
+  column         BoardColumn?    @relation(fields: [columnId], references: [id], onDelete: SetNull)
+  title          String
+  description    String?
+  status         String          @default("todo")
+  priority       PriorityLevel   @default(MEDIUM)
+  position       Int             @default(0)
+  assigneeId     String?         @db.ObjectId
+  assignee       User?           @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  reporterId     String?         @db.ObjectId
+  reporter       User?           @relation("TaskReporter", fields: [reporterId], references: [id], onDelete: SetNull)
+  startDate      DateTime?
+  dueDate        DateTime?
+  estimatedHours Float?
+  actualHours    Float?
+  labels         String[]        @default([])
+  dependencies   String[]        @default([])
+  isBlocked      Boolean         @default(false)
+  blockedReason  String?
+  isArchived     Boolean         @default(false)
+  completedAt    DateTime?
+  checklists     TaskChecklist[]
+  comments       TaskComment[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@index([workspaceId, status])
+  @@index([columnId, position])
+}
+
+model TaskChecklist {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  taskId      String   @db.ObjectId
+  task        Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  title       String
+  isCompleted Boolean  @default(false)
+  position    Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model TaskComment {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  taskId    String   @db.ObjectId
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  userId    String   @db.ObjectId
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Invoice {
+  id             String        @id @default(auto()) @map("_id") @db.ObjectId
+  workspaceId    String        @db.ObjectId
+  workspace      Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  customerId     String        @db.ObjectId
+  customer       Customer      @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  projectId      String?       @db.ObjectId
+  project        Project?      @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  invoiceNumber  String        @unique
+  status         InvoiceStatus @default(ISSUED)
+  currency       String        @default("USD")
+  issueDate      DateTime      @default(now())
+  dueDate        DateTime
+  subtotal       Float         @default(0.0)
+  discountAmount Float         @default(0.0)
+  taxRate        Float         @default(0.0)
+  taxAmount      Float         @default(0.0)
+  totalAmount    Float         @default(0.0)
+  paidAmount     Float         @default(0.0)
+  balanceDue     Float         @default(0.0)
+  notes          String?
+  terms          String?       @default("Net 30 Days")
+  items          InvoiceItem[]
+  payments       Payment[]
+  createdById    String?       @db.ObjectId
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@index([workspaceId, status])
+}
+
+model InvoiceItem {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  invoiceId   String   @db.ObjectId
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  description String
+  quantity    Float    @default(1.0)
+  unitPrice   Float    @default(0.0)
+  discount    Float    @default(0.0)
+  taxRate     Float    @default(0.0)
+  subtotal    Float    @default(0.0)
+  total       Float    @default(0.0)
+}
+
+model Payment {
+  id              String    @id @default(auto()) @map("_id") @db.ObjectId
+  workspaceId     String    @db.ObjectId
+  invoiceId       String    @db.ObjectId
+  invoice         Invoice   @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  amount          Float
+  paymentDate     DateTime  @default(now())
+  paymentMethod   String    @default("bank_transfer")
+  referenceNumber String?
+  notes           String?
+  createdById     String?   @db.ObjectId
+  createdAt       DateTime  @default(now())
+
+  @@index([workspaceId, invoiceId])
+}
+
+model Expense {
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  workspaceId String    @db.ObjectId
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  vendorId    String?   @db.ObjectId
+  vendor      Vendor?   @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  description String
+  category    String    @default("General")
+  amount      Float
+  currency    String    @default("USD")
+  expenseDate DateTime  @default(now())
+  status      String    @default("paid")
+  createdById String?   @db.ObjectId
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([workspaceId, category])
+}
+
+model Vendor {
+  id           String    @id @default(auto()) @map("_id") @db.ObjectId
+  workspaceId  String    @db.ObjectId
+  workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  name         String
+  contactEmail String?
+  phone        String?
+  category     String?
+  paymentTerms String?
+  status       String    @default("active")
+  expenses     Expense[]
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([workspaceId, name])
+}
+
+model Document {
+  id          String          @id @default(auto()) @map("_id") @db.ObjectId
+  workspaceId String          @db.ObjectId
+  workspace   Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  title       String
+  category    String          @default("General")
+  filePath    String
+  fileSize    Int             @default(0)
+  mimeType    String          @default("application/pdf")
+  version     String          @default("1.0")
+  authorId    String?         @db.ObjectId
+  status      String          @default("approved")
+  chunks      DocumentChunk[]
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@index([workspaceId, category])
+}
+
+model DocumentChunk {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  documentId String   @db.ObjectId
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  chunkIndex Int
+  content    String
+  tokenCount Int      @default(0)
+  embedding  Float[]  @default([])
+  createdAt  DateTime @default(now())
+}
+
+model Channel {
+  id          String        @id @default(auto()) @map("_id") @db.ObjectId
+  workspaceId String        @db.ObjectId
+  workspace   Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  type        String        @default("public")
+  createdById String?       @db.ObjectId
+  messages    ChatMessage[]
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@unique([workspaceId, name])
+}
+
+model ChatMessage {
+  id             String        @id @default(auto()) @map("_id") @db.ObjectId
+  workspaceId    String        @db.ObjectId
+  channelId      String?       @db.ObjectId
+  channel        Channel?      @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  senderId       String        @db.ObjectId
+  sender         User          @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  recipientId    String?       @db.ObjectId
+  message        String
+  threadParentId String?       @db.ObjectId
+  isPinned       Boolean       @default(false)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@index([channelId, createdAt])
+}
+
+model Meeting {
+  id              String    @id @default(auto()) @map("_id") @db.ObjectId
+  workspaceId     String    @db.ObjectId
+  workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  projectId       String?   @db.ObjectId
+  project         Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  title           String
+  scheduledAt     DateTime
+  durationMinutes Int       @default(30)
+  location        String?
+  meetingUrl      String?
+  organizerId     String    @db.ObjectId
+  participantIds  String[]  @default([])
+  status          String    @default("scheduled")
+  agenda          String?
+  notes           String?
+  decisions       String?
+  actionItemIds   String[]  @default([])
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([workspaceId, scheduledAt])
+}
+
+model AutomationRule {
+  id           String    @id @default(auto()) @map("_id") @db.ObjectId
+  workspaceId  String    @db.ObjectId
+  workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  name         String
+  triggerEvent String
+  actionType   String
+  actionConfig Json?
+  status       String    @default("active")
+  createdById  String?   @db.ObjectId
+  lastRunAt    DateTime?
+  runCount     Int       @default(0)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([workspaceId, triggerEvent])
+}
+
+model AuditEvent {
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  workspaceId String    @db.ObjectId
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  userId      String?   @db.ObjectId
+  user        User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action      String
+  entityType  String
+  entityId    String?
+  ipAddress   String?
+  details     Json?
+  createdAt   DateTime  @default(now())
+
+  @@index([workspaceId, createdAt])
+}
+
+model Notification {
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  workspaceId String    @db.ObjectId
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  userId      String    @db.ObjectId
+  title       String
+  message     String
+  link        String?
+  isRead      Boolean   @default(false)
+  readAt      DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([userId, isRead])
+}
+
+model AIConversation {
+  id          String      @id @default(auto()) @map("_id") @db.ObjectId
+  workspaceId String      @db.ObjectId
+  workspace   Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  userId      String      @db.ObjectId
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title       String
+  agentKey    String      @default("executive_agent")
+  messages    AIMessage[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@index([workspaceId, userId])
+}
+
+model AIMessage {
+  id                   String         @id @default(auto()) @map("_id") @db.ObjectId
+  conversationId       String         @db.ObjectId
+  conversation         AIConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  role                 String
+  content              String
+  toolCalls            Json?
+  requiresConfirmation Boolean        @default(false)
+  confirmationStatus   String         @default("none")
+  sources              Json?
+  createdAt            DateTime       @default(now())
+}
+
+model AIApprovalRequest {
+  id             String         @id @default(auto()) @map("_id") @db.ObjectId
+  workspaceId    String         @db.ObjectId
+  workspace      Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  executionId    String?
+  conversationId String?
+  actionName     String
+  agentKey       String
+  actionHash     String?
+  riskLevel      RiskLevel      @default(HIGH)
+  params         Json?
+  status         ApprovalStatus @default(PENDING)
+  requestedById  String
+  decidedById    String?
+  decidedAt      DateTime?
+  decisionReason String?
+  createdAt      DateTime       @default(now())
+
+  @@index([workspaceId, status])
+  @@index([workspaceId, executionId])
+}
+
+model AIExecution {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  workspaceId   String    @db.ObjectId
+  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  userId        String
+  agentId       String
+  prompt        String
+  status        String    @default("PENDING")
+  steps         Json?
+  finalResponse String?
+  error         String?
+  durationMs    Int?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([workspaceId, status])
+  @@index([workspaceId, createdAt])
+}
