@@ -18,6 +18,9 @@
     "test": "npm --workspace=@omnidesk/api run test && npm --workspace=@omnidesk/web run test"
 
   },
+  "dependencies": {
+    "typescript": "^5.4.5"
+  },
   "devDependencies": {
     "typescript": "^5.4.5"
   }

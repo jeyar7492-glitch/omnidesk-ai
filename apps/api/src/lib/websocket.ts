@@ -1,4 +1,5 @@
-import { WebSocketServer, WebSocket } from "ws";
+import { WebSocketServer, WebSocket, RawData } from "ws";
+import type { IncomingMessage } from "http";
 import { RealtimeEventEnvelope } from "@omnidesk/shared-types";
 import { logger } from "./logger";
 import { authService } from "../auth/services/auth.service";
@@ -18,7 +19,7 @@ export class WebSocketManager {
   public init(wss: WebSocketServer): void {
     this.wss = wss;
 
-    this.wss.on("connection", async (ws: ExtendedWebSocket, req) => {
+    this.wss.on("connection", async (ws: ExtendedWebSocket, req: IncomingMessage) => {
       this.clients.add(ws);
       ws.isAlive = true;
       ws.isAuthenticated = false;
@@ -117,7 +118,7 @@ export class WebSocketManager {
         ws.isAlive = true;
       });
 
-      ws.on("message", async (data) => {
+      ws.on("message", async (data: RawData) => {
         try {
           const parsed = JSON.parse(data.toString());
           if (parsed.event === "ping") {
