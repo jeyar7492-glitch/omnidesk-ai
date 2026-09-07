@@ -164,4 +164,14 @@ describe("OmniDesk AI Frontend Integration Suite", () => {
     await apiClient.getDeals();
     expect(mockFetch).toHaveBeenLastCalledWith("/api/v1/crm/deals", expect.anything());
   });
+
+  it("8. ApiClient exposes configurable base URL defaulting to /api/v1", () => {
+    expect(apiClient.getBaseUrl()).toBe("/api/v1");
+  });
+
+  it("9. WebSocketClient derives valid WebSocket endpoint ending in /ws", () => {
+    const endpoint = wsClient.getWsEndpoint();
+    expect(endpoint.endsWith("/ws")).toBe(true);
+    expect(endpoint.startsWith("ws://") || endpoint.startsWith("wss://")).toBe(true);
+  });
 });

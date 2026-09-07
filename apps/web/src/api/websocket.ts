@@ -18,6 +18,27 @@ export class WebSocketClient {
   private reconnectTimer: any = null;
   private shouldReconnect = true;
 
+  public getWsEndpoint(): string {
+    let baseWsUrl = "";
+    const metaEnv = typeof import.meta !== "undefined" ? (import.meta as any).env : undefined;
+    if (metaEnv?.VITE_WS_URL && metaEnv.VITE_WS_URL.trim()) {
+      baseWsUrl = metaEnv.VITE_WS_URL.trim().replace(/\/+$/, "");
+    } else if (metaEnv?.VITE_API_URL || metaEnv?.VITE_API_BASE_URL) {
+      let rawApiUrl = (metaEnv.VITE_API_URL || metaEnv.VITE_API_BASE_URL).trim().replace(/\/+$/, "");
+      // Strip any trailing /api or /api/v1 from API base URL before deriving WebSocket URL
+      rawApiUrl = rawApiUrl.replace(/\/api(\/v\d+)?$/, "");
+      baseWsUrl = rawApiUrl.replace(/^http:/, "ws:").replace(/^https:/, "wss:");
+    } else if (typeof window !== "undefined") {
+      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+      const host = window.location.host || "localhost:4000";
+      baseWsUrl = `${protocol}//${host}`;
+    } else {
+      baseWsUrl = "ws://localhost:4000";
+    }
+
+    return baseWsUrl.endsWith("/ws") ? baseWsUrl : `${baseWsUrl}/ws`;
+  }
+
   public connect(): void {
     if (typeof window === "undefined") return;
 
@@ -34,24 +55,7 @@ export class WebSocketClient {
       // Ignore
     }
     const tokenQuery = token ? `?token=${encodeURIComponent(token)}` : "";
-
-    let baseWsUrl = "";
-    const metaEnv = typeof import.meta !== "undefined" ? (import.meta as any).env : undefined;
-    if (metaEnv?.VITE_WS_URL) {
-      baseWsUrl = metaEnv.VITE_WS_URL.replace(/\/+$/, "");
-    } else if (metaEnv?.VITE_API_BASE_URL || metaEnv?.VITE_API_URL) {
-      const apiUrl = (metaEnv.VITE_API_BASE_URL || metaEnv.VITE_API_URL).replace(/\/+$/, "");
-      baseWsUrl = apiUrl.replace(/^http:/, "ws:").replace(/^https:/, "wss:");
-    } else if (typeof window !== "undefined") {
-      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-      const host = window.location.host || "localhost:4000";
-      baseWsUrl = `${protocol}//${host}`;
-    } else {
-      baseWsUrl = "ws://localhost:4000";
-    }
-
-
-    const wsEndpoint = baseWsUrl.endsWith("/ws") ? baseWsUrl : `${baseWsUrl}/ws`;
+    const wsEndpoint = this.getWsEndpoint();
     const wsUrl = `${wsEndpoint}${tokenQuery}`;
 
 

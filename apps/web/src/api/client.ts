@@ -28,8 +28,18 @@ export interface WorkspaceContextData {
 export class ApiClient {
   private baseUrl = (() => {
     const metaEnv = typeof import.meta !== "undefined" ? (import.meta as any).env : undefined;
-    const origin = (metaEnv?.VITE_API_BASE_URL || metaEnv?.VITE_API_URL) || "";
-    return `${origin.replace(/\/+$/, "")}/api/v1`;
+    const rawUrl = (metaEnv?.VITE_API_URL || metaEnv?.VITE_API_BASE_URL || "").trim();
+    if (!rawUrl) {
+      return "/api/v1";
+    }
+    const cleanUrl = rawUrl.replace(/\/+$/, "");
+    if (cleanUrl.endsWith("/api/v1")) {
+      return cleanUrl;
+    }
+    if (cleanUrl.endsWith("/api")) {
+      return `${cleanUrl}/v1`;
+    }
+    return `${cleanUrl}/api/v1`;
   })();
   private accessToken: string | null = null;
 
@@ -116,6 +126,10 @@ export class ApiClient {
 
   public getAccessToken(): string | null {
     return this.accessToken;
+  }
+
+  public getBaseUrl(): string {
+    return this.baseUrl;
   }
 
   public setContext(context: Partial<WorkspaceContextData>): void {
