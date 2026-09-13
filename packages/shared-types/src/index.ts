@@ -99,6 +99,9 @@ export interface LeadSummary {
   notes?: string | null;
   isConverted?: boolean;
   convertedAt?: string | null;
+  convertedCustomerId?: string | null;
+  convertedContactId?: string | null;
+  convertedDealId?: string | null;
   isArchived?: boolean;
   assignedUserId?: string | null;
   createdAt: string;
