@@ -84,46 +84,89 @@ export interface WorkspaceSummary {
 export interface LeadSummary {
   id: string;
   title: string;
+  source?: string | null;
+  status?: string;
   stage: DealStage;
   dealValue: number;
   probability: number;
   priority: PriorityLevel;
-  customerName?: string;
-  expectedClose?: string;
+  customerName?: string | null;
+  customerId?: string | null;
+  contactName?: string | null;
+  contactEmail?: string | null;
+  contactPhone?: string | null;
+  expectedClose?: string | null;
+  notes?: string | null;
+  isConverted?: boolean;
+  convertedAt?: string | null;
+  isArchived?: boolean;
+  assignedUserId?: string | null;
   createdAt: string;
+  updatedAt?: string;
 }
 
 export interface CustomerSummary {
   id: string;
   companyName: string;
-  contactPerson?: string;
-  email?: string;
-  phone?: string;
-  industry?: string;
+  name?: string;
+  domain?: string | null;
+  healthScore?: number;
+  contactPerson?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  website?: string | null;
+  industry?: string | null;
+  address?: string | null;
+  city?: string | null;
+  state?: string | null;
+  country?: string | null;
   status: string;
+  notes?: string | null;
+  isArchived?: boolean;
+  dealCount?: number;
+  leadCount?: number;
+  contactCount?: number;
   createdAt: string;
+  updatedAt?: string;
 }
 
 export interface ContactSummary {
   id: string;
   name: string;
-  email?: string;
-  phone?: string;
-  jobTitle?: string;
-  customerName?: string;
+  firstName?: string;
+  lastName?: string;
+  email?: string | null;
+  phone?: string | null;
+  jobTitle?: string | null;
+  department?: string | null;
+  customerName?: string | null;
+  customerId?: string | null;
   isPrimary: boolean;
+  notes?: string | null;
+  isArchived?: boolean;
+  createdAt?: string;
 }
 
 export interface DealSummary {
   id: string;
   title: string;
+  currency?: string;
   stage: DealStage;
   dealValue: number;
   probability: number;
-  expectedClose?: string;
-  closedAt?: string;
+  expectedClose?: string | null;
+  closedAt?: string | null;
   priority: PriorityLevel;
-  customerName?: string;
+  customerName?: string | null;
+  customerId?: string | null;
+  contactName?: string | null;
+  contactId?: string | null;
+  leadId?: string | null;
+  notes?: string | null;
+  isArchived?: boolean;
+  assignedUserId?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface PipelineSummary {
@@ -133,6 +176,77 @@ export interface PipelineSummary {
   totalWonValue: number;
   totalLostValue: number;
   stageBreakdown: Record<DealStage, { count: number; totalValue: number; weightedValue: number }>;
+}
+
+export interface CRMActivitySummary {
+  id: string;
+  entityType: "lead" | "deal" | "customer" | "contact";
+  entityId: string;
+  type: "note" | "call" | "meeting" | "email" | "follow_up" | string;
+  title: string;
+  content?: string | null;
+  dueDate?: string | null;
+  isCompleted: boolean;
+  completedAt?: string | null;
+  userId?: string | null;
+  userName?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CustomerDetail extends CustomerSummary {
+  contacts: ContactSummary[];
+  leads: LeadSummary[];
+  deals: DealSummary[];
+  activities: CRMActivitySummary[];
+}
+
+export interface ContactDetail extends ContactSummary {
+  customer?: CustomerSummary | null;
+  deals: DealSummary[];
+  activities: CRMActivitySummary[];
+}
+
+export interface LeadDetail extends LeadSummary {
+  customer?: CustomerSummary | null;
+  deals: DealSummary[];
+  activities: CRMActivitySummary[];
+}
+
+export interface DealDetail extends DealSummary {
+  customer?: CustomerSummary | null;
+  contact?: ContactSummary | null;
+  lead?: LeadSummary | null;
+  activities: CRMActivitySummary[];
+}
+
+export interface CRMDashboardMetrics {
+  totalCustomers: number;
+  activeCustomers: number;
+  totalContacts: number;
+  openLeads: number;
+  convertedLeads: number;
+  openDeals: number;
+  wonDeals: number;
+  lostDeals: number;
+  totalPipelineValue: number;
+  weightedPipelineValue: number;
+  wonRevenue: number;
+  conversionRate: number;
+  pipelineByStage: Record<DealStage, { count: number; totalValue: number; weightedValue: number }>;
+  leadDistribution: {
+    byStage: Record<string, number>;
+    byPriority: Record<string, number>;
+  };
+  recentActivities: CRMActivitySummary[];
+}
+
+export interface PaginatedResponse<T> {
+  items: T[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
 }
 
 export type ProjectStatus = "PLANNING" | "ACTIVE" | "ON_HOLD" | "COMPLETED" | "CANCELLED";

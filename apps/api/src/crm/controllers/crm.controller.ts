@@ -4,15 +4,21 @@ import { AuthenticatedRequest } from "../../middleware/auth_context";
 import {
   CreateLeadSchema,
   UpdateLeadSchema,
+  ConvertLeadSchema,
+  LeadQuerySchema,
   CreateCustomerSchema,
   UpdateCustomerSchema,
+  CustomerQuerySchema,
   CreateContactSchema,
   UpdateContactSchema,
+  ContactQuerySchema,
   CreateDealSchema,
   UpdateDealSchema,
   MoveDealSchema,
-  CloseDealSchema,
+  DealQuerySchema,
   CreateCRMActivitySchema,
+  UpdateCRMActivitySchema,
+  CRMActivityQuerySchema,
 } from "@omnidesk/validation";
 
 export class CRMController {
@@ -21,10 +27,14 @@ export class CRMController {
     try {
       const authReq = req as AuthenticatedRequest;
       const validated = CreateLeadSchema.parse(req.body);
-      const lead = await crmService.createLead(authReq.context.workspaceId, {
-        ...validated,
-        expectedClose: validated.expectedClose ? new Date(validated.expectedClose) : undefined,
-      });
+      const lead = await crmService.createLead(
+        authReq.context.workspaceId,
+        {
+          ...validated,
+          expectedClose: validated.expectedClose ? new Date(validated.expectedClose) : undefined,
+        },
+        authReq.context.userId
+      );
       res.status(201).json({ success: true, data: lead });
     } catch (err) {
       next(err);
@@ -34,15 +44,31 @@ export class CRMController {
   public async listLeads(req: Request, res: Response, next: NextFunction) {
     try {
       const authReq = req as AuthenticatedRequest;
-      const { query, stage, priority, assignedUserId, limit } = req.query;
-      const leads = await crmService.findLeads(authReq.context.workspaceId, {
-        query: query as string,
-        stage: stage as any,
-        priority: priority as any,
-        assignedUserId: assignedUserId as string,
-        limit: limit ? parseInt(limit as string, 10) : undefined,
+      const query = LeadQuerySchema.parse(req.query);
+      const result = await crmService.findLeadsPaginated(authReq.context.workspaceId, {
+        query: query.query,
+        stage: query.stage,
+        status: query.status,
+        source: query.source,
+        priority: query.priority,
+        assignedUserId: query.assignedUserId,
+        isConverted: query.isConverted !== undefined ? query.isConverted === "true" : undefined,
+        isArchived: query.isArchived !== undefined ? query.isArchived === "true" : undefined,
+        page: query.page,
+        limit: query.limit,
+        sortBy: query.sortBy,
+        sortOrder: query.sortOrder,
       });
-      res.status(200).json({ success: true, data: leads });
+      res.status(200).json({
+        success: true,
+        data: result.items,
+        meta: {
+          total: result.total,
+          page: result.page,
+          limit: result.limit,
+          totalPages: result.totalPages,
+        },
+      });
     } catch (err) {
       next(err);
     }
@@ -62,11 +88,53 @@ export class CRMController {
     try {
       const authReq = req as AuthenticatedRequest;
       const validated = UpdateLeadSchema.parse(req.body);
-      const lead = await crmService.updateLead(authReq.context.workspaceId, req.params.id, {
-        ...validated,
-        expectedClose: validated.expectedClose ? new Date(validated.expectedClose) : undefined,
-      });
+      const lead = await crmService.updateLead(
+        authReq.context.workspaceId,
+        req.params.id,
+        {
+          ...validated,
+          expectedClose: validated.expectedClose ? new Date(validated.expectedClose) : undefined,
+        },
+        authReq.context.userId
+      );
       res.status(200).json({ success: true, data: lead });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  public async convertLead(req: Request, res: Response, next: NextFunction) {
+    try {
+      const authReq = req as AuthenticatedRequest;
+      const validated = ConvertLeadSchema.parse(req.body);
+      const result = await crmService.convertLead(
+        authReq.context.workspaceId,
+        req.params.id,
+        validated,
+        authReq.context.userId
+      );
+      res.status(200).json({ success: true, data: result });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  public async archiveLead(req: Request, res: Response, next: NextFunction) {
+    try {
+      const authReq = req as AuthenticatedRequest;
+      const archive = req.body.archive !== undefined ? Boolean(req.body.archive) : true;
+      const lead = await crmService.archiveLead(authReq.context.workspaceId, req.params.id, archive, authReq.context.userId);
+      res.status(200).json({ success: true, data: lead });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  public async deleteLead(req: Request, res: Response, next: NextFunction) {
+    try {
+      const authReq = req as AuthenticatedRequest;
+      const result = await crmService.deleteLead(authReq.context.workspaceId, req.params.id, authReq.context.userId);
+      res.status(200).json({ success: true, data: result });
     } catch (err) {
       next(err);
     }
@@ -77,7 +145,7 @@ export class CRMController {
     try {
       const authReq = req as AuthenticatedRequest;
       const validated = CreateCustomerSchema.parse(req.body);
-      const customer = await crmService.createCustomer(authReq.context.workspaceId, validated);
+      const customer = await crmService.createCustomer(authReq.context.workspaceId, validated, authReq.context.userId);
       res.status(201).json({ success: true, data: customer });
     } catch (err) {
       next(err);
@@ -87,13 +155,28 @@ export class CRMController {
   public async listCustomers(req: Request, res: Response, next: NextFunction) {
     try {
       const authReq = req as AuthenticatedRequest;
-      const { query, industry, limit } = req.query;
-      const customers = await crmService.findCustomers(authReq.context.workspaceId, {
-        query: query as string,
-        industry: industry as string,
-        limit: limit ? parseInt(limit as string, 10) : undefined,
+      const query = CustomerQuerySchema.parse(req.query);
+      const result = await crmService.findCustomersPaginated(authReq.context.workspaceId, {
+        query: query.query,
+        industry: query.industry,
+        status: query.status,
+        isArchived: query.isArchived !== undefined ? query.isArchived === "true" : undefined,
+        assignedUserId: query.assignedUserId,
+        page: query.page,
+        limit: query.limit,
+        sortBy: query.sortBy,
+        sortOrder: query.sortOrder,
       });
-      res.status(200).json({ success: true, data: customers });
+      res.status(200).json({
+        success: true,
+        data: result.items,
+        meta: {
+          total: result.total,
+          page: result.page,
+          limit: result.limit,
+          totalPages: result.totalPages,
+        },
+      });
     } catch (err) {
       next(err);
     }
@@ -113,8 +196,29 @@ export class CRMController {
     try {
       const authReq = req as AuthenticatedRequest;
       const validated = UpdateCustomerSchema.parse(req.body);
-      const customer = await crmService.updateCustomer(authReq.context.workspaceId, req.params.id, validated);
+      const customer = await crmService.updateCustomer(authReq.context.workspaceId, req.params.id, validated, authReq.context.userId);
       res.status(200).json({ success: true, data: customer });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  public async archiveCustomer(req: Request, res: Response, next: NextFunction) {
+    try {
+      const authReq = req as AuthenticatedRequest;
+      const archive = req.body.archive !== undefined ? Boolean(req.body.archive) : true;
+      const customer = await crmService.archiveCustomer(authReq.context.workspaceId, req.params.id, archive, authReq.context.userId);
+      res.status(200).json({ success: true, data: customer });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  public async deleteCustomer(req: Request, res: Response, next: NextFunction) {
+    try {
+      const authReq = req as AuthenticatedRequest;
+      const result = await crmService.deleteCustomer(authReq.context.workspaceId, req.params.id, authReq.context.userId);
+      res.status(200).json({ success: true, data: result });
     } catch (err) {
       next(err);
     }
@@ -125,7 +229,7 @@ export class CRMController {
     try {
       const authReq = req as AuthenticatedRequest;
       const validated = CreateContactSchema.parse(req.body);
-      const contact = await crmService.createContact(authReq.context.workspaceId, validated);
+      const contact = await crmService.createContact(authReq.context.workspaceId, validated, authReq.context.userId);
       res.status(201).json({ success: true, data: contact });
     } catch (err) {
       next(err);
@@ -135,13 +239,27 @@ export class CRMController {
   public async listContacts(req: Request, res: Response, next: NextFunction) {
     try {
       const authReq = req as AuthenticatedRequest;
-      const { query, customerId, limit } = req.query;
-      const contacts = await crmService.findContacts(authReq.context.workspaceId, {
-        query: query as string,
-        customerId: customerId as string,
-        limit: limit ? parseInt(limit as string, 10) : undefined,
+      const query = ContactQuerySchema.parse(req.query);
+      const result = await crmService.findContactsPaginated(authReq.context.workspaceId, {
+        query: query.query,
+        customerId: query.customerId,
+        isPrimary: query.isPrimary !== undefined ? query.isPrimary === "true" : undefined,
+        isArchived: query.isArchived !== undefined ? query.isArchived === "true" : undefined,
+        page: query.page,
+        limit: query.limit,
+        sortBy: query.sortBy,
+        sortOrder: query.sortOrder,
       });
-      res.status(200).json({ success: true, data: contacts });
+      res.status(200).json({
+        success: true,
+        data: result.items,
+        meta: {
+          total: result.total,
+          page: result.page,
+          limit: result.limit,
+          totalPages: result.totalPages,
+        },
+      });
     } catch (err) {
       next(err);
     }
@@ -161,8 +279,29 @@ export class CRMController {
     try {
       const authReq = req as AuthenticatedRequest;
       const validated = UpdateContactSchema.parse(req.body);
-      const contact = await crmService.updateContact(authReq.context.workspaceId, req.params.id, validated);
+      const contact = await crmService.updateContact(authReq.context.workspaceId, req.params.id, validated, authReq.context.userId);
       res.status(200).json({ success: true, data: contact });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  public async archiveContact(req: Request, res: Response, next: NextFunction) {
+    try {
+      const authReq = req as AuthenticatedRequest;
+      const archive = req.body.archive !== undefined ? Boolean(req.body.archive) : true;
+      const contact = await crmService.archiveContact(authReq.context.workspaceId, req.params.id, archive, authReq.context.userId);
+      res.status(200).json({ success: true, data: contact });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  public async deleteContact(req: Request, res: Response, next: NextFunction) {
+    try {
+      const authReq = req as AuthenticatedRequest;
+      const result = await crmService.deleteContact(authReq.context.workspaceId, req.params.id, authReq.context.userId);
+      res.status(200).json({ success: true, data: result });
     } catch (err) {
       next(err);
     }
@@ -173,10 +312,14 @@ export class CRMController {
     try {
       const authReq = req as AuthenticatedRequest;
       const validated = CreateDealSchema.parse(req.body);
-      const deal = await crmService.createDeal(authReq.context.workspaceId, {
-        ...validated,
-        expectedClose: validated.expectedClose ? new Date(validated.expectedClose) : undefined,
-      });
+      const deal = await crmService.createDeal(
+        authReq.context.workspaceId,
+        {
+          ...validated,
+          expectedClose: validated.expectedClose ? new Date(validated.expectedClose) : undefined,
+        },
+        authReq.context.userId
+      );
       res.status(201).json({ success: true, data: deal });
     } catch (err) {
       next(err);
@@ -186,17 +329,32 @@ export class CRMController {
   public async listDeals(req: Request, res: Response, next: NextFunction) {
     try {
       const authReq = req as AuthenticatedRequest;
-      const { query, stage, priority, minAmount, maxAmount, customerId, limit } = req.query;
-      const deals = await crmService.findDeals(authReq.context.workspaceId, {
-        query: query as string,
-        stage: stage as any,
-        priority: priority as any,
-        minAmount: minAmount ? parseFloat(minAmount as string) : undefined,
-        maxAmount: maxAmount ? parseFloat(maxAmount as string) : undefined,
-        customerId: customerId as string,
-        limit: limit ? parseInt(limit as string, 10) : undefined,
+      const query = DealQuerySchema.parse(req.query);
+      const result = await crmService.findDealsPaginated(authReq.context.workspaceId, {
+        query: query.query,
+        stage: query.stage,
+        priority: query.priority,
+        assignedUserId: query.assignedUserId,
+        customerId: query.customerId,
+        contactId: query.contactId,
+        minAmount: query.minAmount,
+        maxAmount: query.maxAmount,
+        isArchived: query.isArchived !== undefined ? query.isArchived === "true" : undefined,
+        page: query.page,
+        limit: query.limit,
+        sortBy: query.sortBy,
+        sortOrder: query.sortOrder,
       });
-      res.status(200).json({ success: true, data: deals });
+      res.status(200).json({
+        success: true,
+        data: result.items,
+        meta: {
+          total: result.total,
+          page: result.page,
+          limit: result.limit,
+          totalPages: result.totalPages,
+        },
+      });
     } catch (err) {
       next(err);
     }
@@ -212,6 +370,25 @@ export class CRMController {
     }
   }
 
+  public async updateDeal(req: Request, res: Response, next: NextFunction) {
+    try {
+      const authReq = req as AuthenticatedRequest;
+      const validated = UpdateDealSchema.parse(req.body);
+      const deal = await crmService.updateDeal(
+        authReq.context.workspaceId,
+        req.params.id,
+        {
+          ...validated,
+          expectedClose: validated.expectedClose ? new Date(validated.expectedClose) : undefined,
+        },
+        authReq.context.userId
+      );
+      res.status(200).json({ success: true, data: deal });
+    } catch (err) {
+      next(err);
+    }
+  }
+
   public async moveDeal(req: Request, res: Response, next: NextFunction) {
     try {
       const authReq = req as AuthenticatedRequest;
@@ -220,9 +397,31 @@ export class CRMController {
         authReq.context.workspaceId,
         req.params.id,
         validated.targetStage,
-        validated.reason
+        validated.reason,
+        authReq.context.userId
       );
       res.status(200).json({ success: true, data: deal });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  public async archiveDeal(req: Request, res: Response, next: NextFunction) {
+    try {
+      const authReq = req as AuthenticatedRequest;
+      const archive = req.body.archive !== undefined ? Boolean(req.body.archive) : true;
+      const deal = await crmService.archiveDeal(authReq.context.workspaceId, req.params.id, archive, authReq.context.userId);
+      res.status(200).json({ success: true, data: deal });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  public async deleteDeal(req: Request, res: Response, next: NextFunction) {
+    try {
+      const authReq = req as AuthenticatedRequest;
+      const result = await crmService.deleteDeal(authReq.context.workspaceId, req.params.id, authReq.context.userId);
+      res.status(200).json({ success: true, data: result });
     } catch (err) {
       next(err);
     }
@@ -249,6 +448,17 @@ export class CRMController {
     }
   }
 
+  // ── CRM Dashboard Analytics ───────────────────────────────────────────────
+  public async getDashboard(req: Request, res: Response, next: NextFunction) {
+    try {
+      const authReq = req as AuthenticatedRequest;
+      const metrics = await crmService.getCRMDashboard(authReq.context.workspaceId);
+      res.status(200).json({ success: true, data: metrics });
+    } catch (err) {
+      next(err);
+    }
+  }
+
   // ── Activities ────────────────────────────────────────────────────────────
   public async createActivity(req: Request, res: Response, next: NextFunction) {
     try {
@@ -260,6 +470,64 @@ export class CRMController {
         userId: authReq.context.userId,
       });
       res.status(201).json({ success: true, data: activity });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  public async listActivities(req: Request, res: Response, next: NextFunction) {
+    try {
+      const authReq = req as AuthenticatedRequest;
+      const query = CRMActivityQuerySchema.parse(req.query);
+      const result = await crmService.findActivitiesPaginated(authReq.context.workspaceId, {
+        entityType: query.entityType,
+        entityId: query.entityId,
+        type: query.type,
+        isCompleted: query.isCompleted !== undefined ? query.isCompleted === "true" : undefined,
+        page: query.page,
+        limit: query.limit,
+        sortBy: query.sortBy,
+        sortOrder: query.sortOrder,
+      });
+      res.status(200).json({
+        success: true,
+        data: result.items,
+        meta: {
+          total: result.total,
+          page: result.page,
+          limit: result.limit,
+          totalPages: result.totalPages,
+        },
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  public async updateActivity(req: Request, res: Response, next: NextFunction) {
+    try {
+      const authReq = req as AuthenticatedRequest;
+      const validated = UpdateCRMActivitySchema.parse(req.body);
+      const activity = await crmService.updateActivity(
+        authReq.context.workspaceId,
+        req.params.id,
+        {
+          ...validated,
+          dueDate: validated.dueDate ? new Date(validated.dueDate) : validated.dueDate === null ? null : undefined,
+        },
+        authReq.context.userId
+      );
+      res.status(200).json({ success: true, data: activity });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  public async deleteActivity(req: Request, res: Response, next: NextFunction) {
+    try {
+      const authReq = req as AuthenticatedRequest;
+      const result = await crmService.deleteActivity(authReq.context.workspaceId, req.params.id, authReq.context.userId);
+      res.status(200).json({ success: true, data: result });
     } catch (err) {
       next(err);
     }

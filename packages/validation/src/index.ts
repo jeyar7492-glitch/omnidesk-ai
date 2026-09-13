@@ -89,6 +89,8 @@ export const PriorityLevelSchema = z.enum(["LOW", "MEDIUM", "HIGH", "URGENT"]);
 
 export const CreateLeadSchema = z.object({
   title: z.string().min(1, "Lead title is required").max(200),
+  source: z.string().max(100).optional(),
+  status: z.string().max(50).optional().default("new"),
   customerId: z.string().optional(),
   stage: DealStageSchema.optional().default("QUALIFICATION"),
   dealValue: z.number().nonnegative().optional().default(0),
@@ -101,6 +103,22 @@ export const CreateLeadSchema = z.object({
 
 export const UpdateLeadSchema = CreateLeadSchema.partial();
 
+export const ConvertLeadSchema = z.object({
+  createCustomer: z.boolean().optional().default(true),
+  customerCompanyName: z.string().max(200).optional(),
+  customerName: z.string().max(200).optional(),
+  existingCustomerId: z.string().optional(),
+  createContact: z.boolean().optional().default(true),
+  contactFirstName: z.string().max(100).optional(),
+  contactLastName: z.string().max(100).optional(),
+  contactEmail: z.string().email("Invalid email").optional().or(z.literal("")),
+  createDeal: z.boolean().optional().default(true),
+  dealTitle: z.string().max(200).optional(),
+  dealValue: z.number().nonnegative().optional(),
+  dealStage: DealStageSchema.optional().default("QUALIFICATION"),
+  notes: z.string().max(2000).optional(),
+});
+
 export const CreateCustomerSchema = z.object({
   companyName: z.string().min(1, "Company name is required").max(200),
   contactPerson: z.string().max(100).optional(),
@@ -112,6 +130,8 @@ export const CreateCustomerSchema = z.object({
   city: z.string().max(100).optional(),
   state: z.string().max(100).optional(),
   country: z.string().max(100).optional(),
+  status: z.string().max(50).optional().default("active"),
+  notes: z.string().max(2000).optional(),
   assignedUserId: z.string().optional(),
 });
 
@@ -133,6 +153,7 @@ export const UpdateContactSchema = CreateContactSchema.partial();
 
 export const CreateDealSchema = z.object({
   title: z.string().min(1, "Deal title is required").max(200),
+  currency: z.string().max(10).optional().default("USD"),
   dealValue: z.number().nonnegative("Deal value must be non-negative"),
   stage: DealStageSchema.optional().default("QUALIFICATION"),
   probability: z.number().min(0).max(100).optional().default(20),
@@ -165,6 +186,79 @@ export const CreateCRMActivitySchema = z.object({
   title: z.string().min(1, "Title is required").max(200),
   content: z.string().max(4000).optional(),
   dueDate: z.string().datetime().optional(),
+});
+
+export const UpdateCRMActivitySchema = z.object({
+  title: z.string().min(1).max(200).optional(),
+  content: z.string().max(4000).optional(),
+  type: z.enum(["note", "call", "meeting", "email", "follow_up"]).optional(),
+  dueDate: z.string().datetime().optional().nullable(),
+  isCompleted: z.boolean().optional(),
+});
+
+export const CustomerQuerySchema = z.object({
+  query: z.string().optional(),
+  industry: z.string().optional(),
+  status: z.string().optional(),
+  isArchived: z.enum(["true", "false"]).optional(),
+  assignedUserId: z.string().optional(),
+  page: z.coerce.number().int().positive().optional().default(1),
+  limit: z.coerce.number().int().positive().max(100).optional().default(20),
+  sortBy: z.enum(["companyName", "createdAt", "status", "industry"]).optional().default("createdAt"),
+  sortOrder: z.enum(["asc", "desc"]).optional().default("desc"),
+});
+
+export const ContactQuerySchema = z.object({
+  query: z.string().optional(),
+  customerId: z.string().optional(),
+  isPrimary: z.enum(["true", "false"]).optional(),
+  isArchived: z.enum(["true", "false"]).optional(),
+  page: z.coerce.number().int().positive().optional().default(1),
+  limit: z.coerce.number().int().positive().max(100).optional().default(20),
+  sortBy: z.enum(["firstName", "lastName", "createdAt", "email"]).optional().default("createdAt"),
+  sortOrder: z.enum(["asc", "desc"]).optional().default("desc"),
+});
+
+export const LeadQuerySchema = z.object({
+  query: z.string().optional(),
+  stage: DealStageSchema.optional(),
+  status: z.string().optional(),
+  source: z.string().optional(),
+  priority: PriorityLevelSchema.optional(),
+  assignedUserId: z.string().optional(),
+  isConverted: z.enum(["true", "false"]).optional(),
+  isArchived: z.enum(["true", "false"]).optional(),
+  page: z.coerce.number().int().positive().optional().default(1),
+  limit: z.coerce.number().int().positive().max(100).optional().default(20),
+  sortBy: z.enum(["title", "dealValue", "createdAt", "expectedClose", "priority"]).optional().default("createdAt"),
+  sortOrder: z.enum(["asc", "desc"]).optional().default("desc"),
+});
+
+export const DealQuerySchema = z.object({
+  query: z.string().optional(),
+  stage: DealStageSchema.optional(),
+  priority: PriorityLevelSchema.optional(),
+  assignedUserId: z.string().optional(),
+  customerId: z.string().optional(),
+  contactId: z.string().optional(),
+  minAmount: z.coerce.number().optional(),
+  maxAmount: z.coerce.number().optional(),
+  isArchived: z.enum(["true", "false"]).optional(),
+  page: z.coerce.number().int().positive().optional().default(1),
+  limit: z.coerce.number().int().positive().max(100).optional().default(20),
+  sortBy: z.enum(["title", "dealValue", "createdAt", "expectedClose", "stage", "priority"]).optional().default("expectedClose"),
+  sortOrder: z.enum(["asc", "desc"]).optional().default("asc"),
+});
+
+export const CRMActivityQuerySchema = z.object({
+  entityType: z.enum(["lead", "deal", "customer", "contact"]).optional(),
+  entityId: z.string().optional(),
+  type: z.string().optional(),
+  isCompleted: z.enum(["true", "false"]).optional(),
+  page: z.coerce.number().int().positive().optional().default(1),
+  limit: z.coerce.number().int().positive().max(100).optional().default(20),
+  sortBy: z.enum(["createdAt", "dueDate"]).optional().default("createdAt"),
+  sortOrder: z.enum(["asc", "desc"]).optional().default("desc"),
 });
 
 // ── Project & Milestone Validation Schemas ──────────────────────────────────

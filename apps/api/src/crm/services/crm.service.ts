@@ -1,4 +1,4 @@
-import { DealStage, PriorityLevel } from "@omnidesk/shared-types";
+import { DealStage, PriorityLevel, CRMDashboardMetrics } from "@omnidesk/shared-types";
 import { prisma } from "../../lib/prisma";
 import { wsManager } from "../../lib/websocket";
 import { NotFoundError, ValidationError } from "../../lib/errors";
@@ -23,21 +23,29 @@ export const ALLOWED_DEAL_TRANSITIONS: Record<DealStage, DealStage[]> = {
 
 export class CRMService {
   // ── Leads ─────────────────────────────────────────────────────────────────
-  public async createLead(workspaceId: string, data: {
-    title: string;
-    customerId?: string;
-    stage?: DealStage;
-    dealValue?: number;
-    probability?: number;
-    expectedClose?: Date;
-    priority?: PriorityLevel;
-    assignedUserId?: string;
-    notes?: string;
-  }) {
+  public async createLead(
+    workspaceId: string,
+    data: {
+      title: string;
+      source?: string;
+      status?: string;
+      customerId?: string;
+      stage?: DealStage;
+      dealValue?: number;
+      probability?: number;
+      expectedClose?: Date;
+      priority?: PriorityLevel;
+      assignedUserId?: string;
+      notes?: string;
+    },
+    userId?: string
+  ) {
     const lead = await prisma.lead.create({
       data: {
         workspaceId,
         title: data.title.trim(),
+        source: data.source?.trim(),
+        status: data.status?.trim() || "new",
         customerId: data.customerId,
         stage: data.stage || "QUALIFICATION",
         dealValue: data.dealValue ?? 0.0,
@@ -48,7 +56,18 @@ export class CRMService {
         notes: data.notes?.trim(),
       },
       include: {
-        customer: { select: { companyName: true, email: true } },
+        customer: { select: { id: true, companyName: true, email: true } },
+      },
+    });
+
+    await prisma.auditEvent.create({
+      data: {
+        workspaceId,
+        userId,
+        action: "lead:created",
+        entityType: "lead",
+        entityId: lead.id,
+        details: { title: lead.title, dealValue: lead.dealValue, stage: lead.stage },
       },
     });
 
@@ -64,17 +83,36 @@ export class CRMService {
     return lead;
   }
 
-  public async findLeads(workspaceId: string, filter: {
-    query?: string;
-    stage?: DealStage;
-    priority?: PriorityLevel;
-    assignedUserId?: string;
-    limit?: number;
-  }) {
+  public async findLeadsPaginated(
+    workspaceId: string,
+    filter: {
+      query?: string;
+      stage?: DealStage;
+      status?: string;
+      source?: string;
+      priority?: PriorityLevel;
+      assignedUserId?: string;
+      isConverted?: boolean;
+      isArchived?: boolean;
+      page?: number;
+      limit?: number;
+      sortBy?: string;
+      sortOrder?: "asc" | "desc";
+    }
+  ) {
     const where: any = { workspaceId };
     if (filter.stage) where.stage = filter.stage;
+    if (filter.status) where.status = filter.status;
+    if (filter.source) where.source = { contains: filter.source.trim(), mode: "insensitive" };
     if (filter.priority) where.priority = filter.priority;
     if (filter.assignedUserId) where.assignedUserId = filter.assignedUserId;
+    if (filter.isConverted !== undefined) where.isConverted = filter.isConverted;
+    if (filter.isArchived !== undefined) {
+      where.isArchived = filter.isArchived;
+    } else {
+      where.isArchived = false;
+    }
+
     if (filter.query && filter.query.trim()) {
       const q = filter.query.trim();
       where.OR = [
@@ -84,16 +122,55 @@ export class CRMService {
       ];
     }
 
-    const leads = await prisma.lead.findMany({
-      where,
-      take: filter.limit || 20,
-      orderBy: { createdAt: "desc" },
-      include: {
-        customer: { select: { id: true, companyName: true } },
-      },
-    });
+    const page = Math.max(filter.page || 1, 1);
+    const limit = Math.min(Math.max(filter.limit || 20, 1), 100);
+    const skip = (page - 1) * limit;
 
-    return leads;
+    const sortField = filter.sortBy || "createdAt";
+    const sortOrder = filter.sortOrder || "desc";
+    const orderBy: any = { [sortField]: sortOrder };
+
+    const [items, total] = await Promise.all([
+      prisma.lead.findMany({
+        where,
+        take: limit,
+        skip,
+        orderBy,
+        include: {
+          customer: { select: { id: true, companyName: true, email: true } },
+        },
+      }),
+      prisma.lead.count({ where }),
+    ]);
+
+    return {
+      items,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit) || 1,
+    };
+  }
+
+  public async findLeads(
+    workspaceId: string,
+    filter: {
+      query?: string;
+      stage?: DealStage;
+      status?: string;
+      source?: string;
+      priority?: PriorityLevel;
+      assignedUserId?: string;
+      isConverted?: boolean;
+      isArchived?: boolean;
+      page?: number;
+      limit?: number;
+      sortBy?: string;
+      sortOrder?: "asc" | "desc";
+    }
+  ) {
+    const res = await this.findLeadsPaginated(workspaceId, filter);
+    return res.items;
   }
 
   public async getLead(workspaceId: string, leadIdOrTitle: string) {
@@ -118,25 +195,43 @@ export class CRMService {
       throw new NotFoundError(`Lead '${leadIdOrTitle}' not found in workspace`);
     }
 
-    return lead;
+    const activities = await prisma.cRMActivity.findMany({
+      where: { workspaceId, entityType: "lead", entityId: lead.id },
+      orderBy: { createdAt: "desc" },
+      take: 20,
+    });
+
+    return {
+      ...lead,
+      activities,
+    };
   }
 
-  public async updateLead(workspaceId: string, leadId: string, data: {
-    title?: string;
-    stage?: DealStage;
-    dealValue?: number;
-    probability?: number;
-    expectedClose?: Date;
-    priority?: PriorityLevel;
-    assignedUserId?: string;
-    notes?: string;
-  }) {
+  public async updateLead(
+    workspaceId: string,
+    leadId: string,
+    data: {
+      title?: string;
+      source?: string;
+      status?: string;
+      stage?: DealStage;
+      dealValue?: number;
+      probability?: number;
+      expectedClose?: Date;
+      priority?: PriorityLevel;
+      assignedUserId?: string;
+      notes?: string;
+    },
+    userId?: string
+  ) {
     const existing = await this.getLead(workspaceId, leadId);
 
     const updated = await prisma.lead.update({
       where: { id: existing.id },
       data: {
         title: data.title?.trim(),
+        source: data.source?.trim(),
+        status: data.status?.trim(),
         stage: data.stage,
         dealValue: data.dealValue,
         probability: data.probability,
@@ -146,7 +241,18 @@ export class CRMService {
         notes: data.notes?.trim(),
       },
       include: {
-        customer: { select: { companyName: true } },
+        customer: { select: { id: true, companyName: true } },
+      },
+    });
+
+    await prisma.auditEvent.create({
+      data: {
+        workspaceId,
+        userId,
+        action: "lead:updated",
+        entityType: "lead",
+        entityId: updated.id,
+        details: { changes: data },
       },
     });
 
@@ -161,20 +267,206 @@ export class CRMService {
     return updated;
   }
 
+  public async convertLead(
+    workspaceId: string,
+    leadId: string,
+    options: {
+      createCustomer?: boolean;
+      customerCompanyName?: string;
+      createContact?: boolean;
+      contactFirstName?: string;
+      contactLastName?: string;
+      contactEmail?: string;
+      createDeal?: boolean;
+      dealTitle?: string;
+      dealValue?: number;
+      dealStage?: DealStage;
+      notes?: string;
+    },
+    userId?: string
+  ) {
+    const lead = await this.getLead(workspaceId, leadId);
+
+    if (lead.isConverted) {
+      throw new ValidationError(`Lead '${lead.title}' has already been converted`);
+    }
+
+    let customerId = (options as any).existingCustomerId || lead.customerId || undefined;
+    let createdCustomer = null;
+
+    // 1. Customer association/creation
+    if (!customerId && options.createCustomer !== false) {
+      const companyName =
+        (options as any).customerName?.trim() ||
+        options.customerCompanyName?.trim() ||
+        lead.title;
+      createdCustomer = await prisma.customer.create({
+        data: {
+          workspaceId,
+          companyName,
+          status: "active",
+          assignedUserId: lead.assignedUserId,
+          notes: options.notes || `Created from converted lead: ${lead.title}`,
+        },
+      });
+      customerId = createdCustomer.id;
+    }
+
+    // 2. Contact creation
+    let createdContact = null;
+    if (options.createContact !== false) {
+      const firstName = options.contactFirstName?.trim() || "Contact";
+      const lastName = options.contactLastName?.trim() || lead.title;
+      createdContact = await prisma.contact.create({
+        data: {
+          workspaceId,
+          customerId,
+          firstName,
+          lastName,
+          email: options.contactEmail?.trim() || lead.customer?.email || null,
+          isPrimary: true,
+          notes: `Created from converted lead: ${lead.title}`,
+        },
+      });
+    }
+
+    // 3. Deal creation
+    let createdDeal = null;
+    if (options.createDeal !== false) {
+      const dealTitle = options.dealTitle?.trim() || lead.title;
+      const dealValue = options.dealValue ?? lead.dealValue;
+      const stage = options.dealStage || "QUALIFICATION";
+      createdDeal = await prisma.deal.create({
+        data: {
+          workspaceId,
+          customerId,
+          contactId: createdContact?.id,
+          leadId: lead.id,
+          title: dealTitle,
+          dealValue,
+          stage,
+          probability: lead.probability || 20,
+          expectedClose: lead.expectedClose,
+          priority: lead.priority,
+          assignedUserId: lead.assignedUserId,
+          notes: options.notes || lead.notes,
+        },
+      });
+    }
+
+    // 4. Update lead state
+    const updatedLead = await prisma.lead.update({
+      where: { id: lead.id },
+      data: {
+        isConverted: true,
+        convertedAt: new Date(),
+        status: "converted",
+        stage: "WON",
+        customerId,
+        convertedCustomerId: customerId,
+        convertedContactId: createdContact?.id,
+        convertedDealId: createdDeal?.id,
+      },
+      include: {
+        customer: true,
+      },
+    });
+
+    // 5. Audit log
+    await prisma.auditEvent.create({
+      data: {
+        workspaceId,
+        userId,
+        action: "lead:converted",
+        entityType: "lead",
+        entityId: lead.id,
+        details: {
+          customerId,
+          contactId: createdContact?.id,
+          dealId: createdDeal?.id,
+        },
+      },
+    });
+
+    // 6. Broadcast event
+    wsManager.broadcastToWorkspace(workspaceId, "crm:lead_converted", {
+      leadId: lead.id,
+      customerId,
+      dealId: createdDeal?.id,
+      contactId: createdContact?.id,
+      convertedAt: updatedLead.convertedAt?.toISOString(),
+    });
+
+    return {
+      lead: updatedLead,
+      customer: createdCustomer,
+      contact: createdContact,
+      deal: createdDeal,
+    };
+  }
+
+  public async archiveLead(workspaceId: string, leadId: string, archive = true, userId?: string) {
+    const existing = await this.getLead(workspaceId, leadId);
+
+    const updated = await prisma.lead.update({
+      where: { id: existing.id },
+      data: { isArchived: archive },
+    });
+
+    await prisma.auditEvent.create({
+      data: {
+        workspaceId,
+        userId,
+        action: archive ? "lead:archived" : "lead:restored",
+        entityType: "lead",
+        entityId: updated.id,
+      },
+    });
+
+    return updated;
+  }
+
+  public async deleteLead(workspaceId: string, leadId: string, userId?: string) {
+    const existing = await this.getLead(workspaceId, leadId);
+
+    await prisma.lead.delete({
+      where: { id: existing.id },
+    });
+
+    await prisma.auditEvent.create({
+      data: {
+        workspaceId,
+        userId,
+        action: "lead:deleted",
+        entityType: "lead",
+        entityId: existing.id,
+        details: { title: existing.title },
+      },
+    });
+
+    return { id: existing.id, deleted: true };
+  }
+
   // ── Customers ─────────────────────────────────────────────────────────────
-  public async createCustomer(workspaceId: string, data: {
-    companyName: string;
-    contactPerson?: string;
-    email?: string;
-    phone?: string;
-    website?: string;
-    industry?: string;
-    address?: string;
-    city?: string;
-    state?: string;
-    country?: string;
-    assignedUserId?: string;
-  }) {
+  public async createCustomer(
+    workspaceId: string,
+    data: {
+      companyName: string;
+      contactPerson?: string;
+      email?: string;
+      phone?: string;
+      website?: string;
+      industry?: string;
+      address?: string;
+      city?: string;
+      state?: string;
+      country?: string;
+      status?: string;
+      notes?: string;
+      assignedUserId?: string;
+    },
+    userId?: string
+  ) {
     const customer = await prisma.customer.create({
       data: {
         workspaceId,
@@ -188,7 +480,20 @@ export class CRMService {
         city: data.city?.trim(),
         state: data.state?.trim(),
         country: data.country?.trim(),
+        status: data.status?.trim() || "active",
+        notes: data.notes?.trim(),
         assignedUserId: data.assignedUserId,
+      },
+    });
+
+    await prisma.auditEvent.create({
+      data: {
+        workspaceId,
+        userId,
+        action: "customer:created",
+        entityType: "customer",
+        entityId: customer.id,
+        details: { companyName: customer.companyName, industry: customer.industry },
       },
     });
 
@@ -202,26 +507,86 @@ export class CRMService {
     return customer;
   }
 
-  public async findCustomers(workspaceId: string, filter: { query?: string; industry?: string; limit?: number }) {
+  public async findCustomersPaginated(
+    workspaceId: string,
+    filter: {
+      query?: string;
+      industry?: string;
+      status?: string;
+      isArchived?: boolean;
+      assignedUserId?: string;
+      page?: number;
+      limit?: number;
+      sortBy?: string;
+      sortOrder?: "asc" | "desc";
+    }
+  ) {
     const where: any = { workspaceId };
     if (filter.industry) where.industry = { contains: filter.industry.trim(), mode: "insensitive" };
+    if (filter.status) where.status = filter.status;
+    if (filter.assignedUserId) where.assignedUserId = filter.assignedUserId;
+    if (filter.isArchived !== undefined) {
+      where.isArchived = filter.isArchived;
+    } else {
+      where.isArchived = false;
+    }
+
     if (filter.query && filter.query.trim()) {
+      const q = filter.query.trim();
       where.OR = [
-        { companyName: { contains: filter.query.trim(), mode: "insensitive" } },
-        { contactPerson: { contains: filter.query.trim(), mode: "insensitive" } },
-        { email: { contains: filter.query.trim(), mode: "insensitive" } },
+        { companyName: { contains: q, mode: "insensitive" } },
+        { contactPerson: { contains: q, mode: "insensitive" } },
+        { email: { contains: q, mode: "insensitive" } },
       ];
     }
 
-    return prisma.customer.findMany({
-      where,
-      take: filter.limit || 20,
-      orderBy: { createdAt: "desc" },
-      include: {
-        contacts: true,
-        _count: { select: { deals: true, leads: true } },
-      },
-    });
+    const page = Math.max(filter.page || 1, 1);
+    const limit = Math.min(Math.max(filter.limit || 20, 1), 100);
+    const skip = (page - 1) * limit;
+
+    const sortField = filter.sortBy || "createdAt";
+    const sortOrder = filter.sortOrder || "desc";
+    const orderBy: any = { [sortField]: sortOrder };
+
+    const [items, total] = await Promise.all([
+      prisma.customer.findMany({
+        where,
+        take: limit,
+        skip,
+        orderBy,
+        include: {
+          contacts: true,
+          _count: { select: { deals: true, leads: true } },
+        },
+      }),
+      prisma.customer.count({ where }),
+    ]);
+
+    return {
+      items,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit) || 1,
+    };
+  }
+
+  public async findCustomers(
+    workspaceId: string,
+    filter: {
+      query?: string;
+      industry?: string;
+      status?: string;
+      isArchived?: boolean;
+      assignedUserId?: string;
+      page?: number;
+      limit?: number;
+      sortBy?: string;
+      sortOrder?: "asc" | "desc";
+    }
+  ) {
+    const res = await this.findCustomersPaginated(workspaceId, filter);
+    return res.items;
   }
 
   public async getCustomer(workspaceId: string, customerIdOrName: string) {
@@ -247,27 +612,53 @@ export class CRMService {
       throw new NotFoundError(`Customer '${customerIdOrName}' not found in workspace`);
     }
 
-    return customer;
+    const activities = await prisma.cRMActivity.findMany({
+      where: { workspaceId, entityType: "customer", entityId: customer.id },
+      orderBy: { createdAt: "desc" },
+      take: 20,
+    });
+
+    return {
+      ...customer,
+      activities,
+    };
   }
 
-  public async updateCustomer(workspaceId: string, customerId: string, data: Partial<{
-    companyName: string;
-    contactPerson: string;
-    email: string;
-    phone: string;
-    website: string;
-    industry: string;
-    address: string;
-    city: string;
-    state: string;
-    country: string;
-    status: string;
-  }>) {
+  public async updateCustomer(
+    workspaceId: string,
+    customerId: string,
+    data: Partial<{
+      companyName: string;
+      contactPerson: string;
+      email: string;
+      phone: string;
+      website: string;
+      industry: string;
+      address: string;
+      city: string;
+      state: string;
+      country: string;
+      status: string;
+      notes: string;
+    }>,
+    userId?: string
+  ) {
     const existing = await this.getCustomer(workspaceId, customerId);
 
     const updated = await prisma.customer.update({
       where: { id: existing.id },
       data,
+    });
+
+    await prisma.auditEvent.create({
+      data: {
+        workspaceId,
+        userId,
+        action: "customer:updated",
+        entityType: "customer",
+        entityId: updated.id,
+        details: { changes: data },
+      },
     });
 
     wsManager.broadcastToWorkspace(workspaceId, "crm:customer_updated", {
@@ -279,18 +670,81 @@ export class CRMService {
     return updated;
   }
 
+  public async archiveCustomer(workspaceId: string, customerId: string, archive = true, userId?: string) {
+    const existing = await this.getCustomer(workspaceId, customerId);
+
+    const updated = await prisma.customer.update({
+      where: { id: existing.id },
+      data: {
+        isArchived: archive,
+        status: archive ? "archived" : "active",
+      },
+    });
+
+    await prisma.auditEvent.create({
+      data: {
+        workspaceId,
+        userId,
+        action: archive ? "customer:archived" : "customer:restored",
+        entityType: "customer",
+        entityId: updated.id,
+      },
+    });
+
+    return updated;
+  }
+
+  public async deleteCustomer(workspaceId: string, customerId: string, userId?: string) {
+    const existing = await this.getCustomer(workspaceId, customerId);
+
+    // Unlink contacts, deals, leads gracefully before deletion
+    await prisma.contact.updateMany({
+      where: { customerId: existing.id },
+      data: { customerId: null },
+    });
+    await prisma.deal.updateMany({
+      where: { customerId: existing.id },
+      data: { customerId: null },
+    });
+    await prisma.lead.updateMany({
+      where: { customerId: existing.id },
+      data: { customerId: null },
+    });
+
+    await prisma.customer.delete({
+      where: { id: existing.id },
+    });
+
+    await prisma.auditEvent.create({
+      data: {
+        workspaceId,
+        userId,
+        action: "customer:deleted",
+        entityType: "customer",
+        entityId: existing.id,
+        details: { companyName: existing.companyName },
+      },
+    });
+
+    return { id: existing.id, deleted: true };
+  }
+
   // ── Contacts ──────────────────────────────────────────────────────────────
-  public async createContact(workspaceId: string, data: {
-    firstName: string;
-    lastName: string;
-    email?: string;
-    phone?: string;
-    jobTitle?: string;
-    department?: string;
-    customerId?: string;
-    isPrimary?: boolean;
-    notes?: string;
-  }) {
+  public async createContact(
+    workspaceId: string,
+    data: {
+      firstName: string;
+      lastName: string;
+      email?: string;
+      phone?: string;
+      jobTitle?: string;
+      department?: string;
+      customerId?: string;
+      isPrimary?: boolean;
+      notes?: string;
+    },
+    userId?: string
+  ) {
     const contact = await prisma.contact.create({
       data: {
         workspaceId,
@@ -305,7 +759,18 @@ export class CRMService {
         notes: data.notes?.trim(),
       },
       include: {
-        customer: { select: { companyName: true } },
+        customer: { select: { id: true, companyName: true } },
+      },
+    });
+
+    await prisma.auditEvent.create({
+      data: {
+        workspaceId,
+        userId,
+        action: "contact:created",
+        entityType: "contact",
+        entityId: contact.id,
+        details: { name: `${contact.firstName} ${contact.lastName}`, email: contact.email },
       },
     });
 
@@ -320,25 +785,83 @@ export class CRMService {
     return contact;
   }
 
-  public async findContacts(workspaceId: string, filter: { query?: string; customerId?: string; limit?: number }) {
+  public async findContactsPaginated(
+    workspaceId: string,
+    filter: {
+      query?: string;
+      customerId?: string;
+      isPrimary?: boolean;
+      isArchived?: boolean;
+      page?: number;
+      limit?: number;
+      sortBy?: string;
+      sortOrder?: "asc" | "desc";
+    }
+  ) {
     const where: any = { workspaceId };
     if (filter.customerId) where.customerId = filter.customerId;
+    if (filter.isPrimary !== undefined) where.isPrimary = filter.isPrimary;
+    if (filter.isArchived !== undefined) {
+      where.isArchived = filter.isArchived;
+    } else {
+      where.isArchived = false;
+    }
+
     if (filter.query && filter.query.trim()) {
+      const q = filter.query.trim();
       where.OR = [
-        { firstName: { contains: filter.query.trim(), mode: "insensitive" } },
-        { lastName: { contains: filter.query.trim(), mode: "insensitive" } },
-        { email: { contains: filter.query.trim(), mode: "insensitive" } },
+        { firstName: { contains: q, mode: "insensitive" } },
+        { lastName: { contains: q, mode: "insensitive" } },
+        { email: { contains: q, mode: "insensitive" } },
+        { jobTitle: { contains: q, mode: "insensitive" } },
       ];
     }
 
-    return prisma.contact.findMany({
-      where,
-      take: filter.limit || 20,
-      orderBy: { createdAt: "desc" },
-      include: {
-        customer: { select: { id: true, companyName: true } },
-      },
-    });
+    const page = Math.max(filter.page || 1, 1);
+    const limit = Math.min(Math.max(filter.limit || 20, 1), 100);
+    const skip = (page - 1) * limit;
+
+    const sortField = filter.sortBy || "createdAt";
+    const sortOrder = filter.sortOrder || "desc";
+    const orderBy: any = { [sortField]: sortOrder };
+
+    const [items, total] = await Promise.all([
+      prisma.contact.findMany({
+        where,
+        take: limit,
+        skip,
+        orderBy,
+        include: {
+          customer: { select: { id: true, companyName: true } },
+        },
+      }),
+      prisma.contact.count({ where }),
+    ]);
+
+    return {
+      items,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit) || 1,
+    };
+  }
+
+  public async findContacts(
+    workspaceId: string,
+    filter: {
+      query?: string;
+      customerId?: string;
+      isPrimary?: boolean;
+      isArchived?: boolean;
+      page?: number;
+      limit?: number;
+      sortBy?: string;
+      sortOrder?: "asc" | "desc";
+    }
+  ) {
+    const res = await this.findContactsPaginated(workspaceId, filter);
+    return res.items;
   }
 
   public async getContact(workspaceId: string, contactIdOrName: string) {
@@ -365,24 +888,53 @@ export class CRMService {
       throw new NotFoundError(`Contact '${contactIdOrName}' not found in workspace`);
     }
 
-    return contact;
+    const activities = await prisma.cRMActivity.findMany({
+      where: { workspaceId, entityType: "contact", entityId: contact.id },
+      orderBy: { createdAt: "desc" },
+      take: 20,
+    });
+
+    return {
+      ...contact,
+      activities,
+    };
   }
 
-  public async updateContact(workspaceId: string, contactId: string, data: Partial<{
-    firstName: string;
-    lastName: string;
-    email: string;
-    phone: string;
-    jobTitle: string;
-    department: string;
-    isPrimary: boolean;
-    notes: string;
-  }>) {
+  public async updateContact(
+    workspaceId: string,
+    contactId: string,
+    data: Partial<{
+      firstName: string;
+      lastName: string;
+      email: string;
+      phone: string;
+      jobTitle: string;
+      department: string;
+      customerId: string;
+      isPrimary: boolean;
+      notes: string;
+    }>,
+    userId?: string
+  ) {
     const existing = await this.getContact(workspaceId, contactId);
 
     const updated = await prisma.contact.update({
       where: { id: existing.id },
       data,
+      include: {
+        customer: { select: { id: true, companyName: true } },
+      },
+    });
+
+    await prisma.auditEvent.create({
+      data: {
+        workspaceId,
+        userId,
+        action: "contact:updated",
+        entityType: "contact",
+        entityId: updated.id,
+        details: { changes: data },
+      },
     });
 
     wsManager.broadcastToWorkspace(workspaceId, "crm:contact_updated", {
@@ -394,24 +946,77 @@ export class CRMService {
     return updated;
   }
 
+  public async archiveContact(workspaceId: string, contactId: string, archive = true, userId?: string) {
+    const existing = await this.getContact(workspaceId, contactId);
+
+    const updated = await prisma.contact.update({
+      where: { id: existing.id },
+      data: { isArchived: archive },
+    });
+
+    await prisma.auditEvent.create({
+      data: {
+        workspaceId,
+        userId,
+        action: archive ? "contact:archived" : "contact:restored",
+        entityType: "contact",
+        entityId: updated.id,
+      },
+    });
+
+    return updated;
+  }
+
+  public async deleteContact(workspaceId: string, contactId: string, userId?: string) {
+    const existing = await this.getContact(workspaceId, contactId);
+
+    await prisma.deal.updateMany({
+      where: { contactId: existing.id },
+      data: { contactId: null },
+    });
+
+    await prisma.contact.delete({
+      where: { id: existing.id },
+    });
+
+    await prisma.auditEvent.create({
+      data: {
+        workspaceId,
+        userId,
+        action: "contact:deleted",
+        entityType: "contact",
+        entityId: existing.id,
+        details: { name: `${existing.firstName} ${existing.lastName}` },
+      },
+    });
+
+    return { id: existing.id, deleted: true };
+  }
+
   // ── Deals & Pipeline ──────────────────────────────────────────────────────
-  public async createDeal(workspaceId: string, data: {
-    title: string;
-    dealValue: number;
-    stage?: DealStage;
-    probability?: number;
-    expectedClose?: Date;
-    priority?: PriorityLevel;
-    customerId?: string;
-    contactId?: string;
-    leadId?: string;
-    assignedUserId?: string;
-    notes?: string;
-  }) {
+  public async createDeal(
+    workspaceId: string,
+    data: {
+      title: string;
+      currency?: string;
+      dealValue: number;
+      stage?: DealStage;
+      probability?: number;
+      expectedClose?: Date;
+      priority?: PriorityLevel;
+      customerId?: string;
+      contactId?: string;
+      leadId?: string;
+      assignedUserId?: string;
+      notes?: string;
+    },
+    userId?: string
+  ) {
     const deal = await prisma.deal.create({
       data: {
         workspaceId,
         title: data.title.trim(),
+        currency: data.currency || "USD",
         dealValue: data.dealValue,
         stage: data.stage || "QUALIFICATION",
         probability: data.probability ?? 20,
@@ -424,8 +1029,19 @@ export class CRMService {
         notes: data.notes?.trim(),
       },
       include: {
-        customer: { select: { companyName: true } },
-        contact: { select: { firstName: true, lastName: true } },
+        customer: { select: { id: true, companyName: true } },
+        contact: { select: { id: true, firstName: true, lastName: true } },
+      },
+    });
+
+    await prisma.auditEvent.create({
+      data: {
+        workspaceId,
+        userId,
+        action: "deal:created",
+        entityType: "deal",
+        entityId: deal.id,
+        details: { title: deal.title, dealValue: deal.dealValue, stage: deal.stage },
       },
     });
 
@@ -441,21 +1057,35 @@ export class CRMService {
     return deal;
   }
 
-  public async findDeals(workspaceId: string, filter: {
-    query?: string;
-    stage?: DealStage;
-    priority?: PriorityLevel;
-    assignedUserId?: string;
-    customerId?: string;
-    minAmount?: number;
-    maxAmount?: number;
-    limit?: number;
-  }) {
+  public async findDealsPaginated(
+    workspaceId: string,
+    filter: {
+      query?: string;
+      stage?: DealStage;
+      priority?: PriorityLevel;
+      assignedUserId?: string;
+      customerId?: string;
+      contactId?: string;
+      minAmount?: number;
+      maxAmount?: number;
+      isArchived?: boolean;
+      page?: number;
+      limit?: number;
+      sortBy?: string;
+      sortOrder?: "asc" | "desc";
+    }
+  ) {
     const where: any = { workspaceId };
     if (filter.stage) where.stage = filter.stage;
     if (filter.priority) where.priority = filter.priority;
     if (filter.assignedUserId) where.assignedUserId = filter.assignedUserId;
     if (filter.customerId) where.customerId = filter.customerId;
+    if (filter.contactId) where.contactId = filter.contactId;
+    if (filter.isArchived !== undefined) {
+      where.isArchived = filter.isArchived;
+    } else {
+      where.isArchived = false;
+    }
 
     if (filter.minAmount !== undefined || filter.maxAmount !== undefined) {
       where.dealValue = {};
@@ -467,15 +1097,57 @@ export class CRMService {
       where.title = { contains: filter.query.trim(), mode: "insensitive" };
     }
 
-    return prisma.deal.findMany({
-      where,
-      take: filter.limit || 20,
-      orderBy: { expectedClose: "asc" },
-      include: {
-        customer: { select: { id: true, companyName: true } },
-        contact: { select: { id: true, firstName: true, lastName: true } },
-      },
-    });
+    const page = Math.max(filter.page || 1, 1);
+    const limit = Math.min(Math.max(filter.limit || 20, 1), 100);
+    const skip = (page - 1) * limit;
+
+    const sortField = filter.sortBy || "expectedClose";
+    const sortOrder = filter.sortOrder || "asc";
+    const orderBy: any = { [sortField]: sortOrder };
+
+    const [items, total] = await Promise.all([
+      prisma.deal.findMany({
+        where,
+        take: limit,
+        skip,
+        orderBy,
+        include: {
+          customer: { select: { id: true, companyName: true } },
+          contact: { select: { id: true, firstName: true, lastName: true } },
+        },
+      }),
+      prisma.deal.count({ where }),
+    ]);
+
+    return {
+      items,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit) || 1,
+    };
+  }
+
+  public async findDeals(
+    workspaceId: string,
+    filter: {
+      query?: string;
+      stage?: DealStage;
+      priority?: PriorityLevel;
+      assignedUserId?: string;
+      customerId?: string;
+      contactId?: string;
+      minAmount?: number;
+      maxAmount?: number;
+      isArchived?: boolean;
+      page?: number;
+      limit?: number;
+      sortBy?: string;
+      sortOrder?: "asc" | "desc";
+    }
+  ) {
+    const res = await this.findDealsPaginated(workspaceId, filter);
+    return res.items;
   }
 
   public async getDeal(workspaceId: string, dealIdOrTitle: string) {
@@ -501,10 +1173,70 @@ export class CRMService {
       throw new NotFoundError(`Deal '${dealIdOrTitle}' not found in workspace`);
     }
 
-    return deal;
+    const activities = await prisma.cRMActivity.findMany({
+      where: { workspaceId, entityType: "deal", entityId: deal.id },
+      orderBy: { createdAt: "desc" },
+      take: 20,
+    });
+
+    return {
+      ...deal,
+      activities,
+    };
   }
 
-  public async moveDeal(workspaceId: string, dealId: string, targetStage: DealStage, reason?: string) {
+  public async updateDeal(
+    workspaceId: string,
+    dealId: string,
+    data: Partial<{
+      title: string;
+      currency: string;
+      dealValue: number;
+      stage: DealStage;
+      probability: number;
+      expectedClose: Date;
+      priority: PriorityLevel;
+      customerId: string;
+      contactId: string;
+      assignedUserId: string;
+      notes: string;
+    }>,
+    userId?: string
+  ) {
+    const existing = await this.getDeal(workspaceId, dealId);
+
+    const updated = await prisma.deal.update({
+      where: { id: existing.id },
+      data,
+      include: {
+        customer: { select: { id: true, companyName: true } },
+        contact: { select: { id: true, firstName: true, lastName: true } },
+      },
+    });
+
+    await prisma.auditEvent.create({
+      data: {
+        workspaceId,
+        userId,
+        action: "deal:updated",
+        entityType: "deal",
+        entityId: updated.id,
+        details: { changes: data },
+      },
+    });
+
+    wsManager.broadcastToWorkspace(workspaceId, "crm:deal_updated", {
+      dealId: updated.id,
+      title: updated.title,
+      stage: updated.stage,
+      dealValue: updated.dealValue,
+      updatedAt: updated.updatedAt.toISOString(),
+    });
+
+    return updated;
+  }
+
+  public async moveDeal(workspaceId: string, dealId: string, targetStage: DealStage, reason?: string, userId?: string) {
     const deal = await this.getDeal(workspaceId, dealId);
 
     if (deal.stage === targetStage) {
@@ -530,7 +1262,19 @@ export class CRMService {
         notes: reason ? `${deal.notes ? deal.notes + "\n" : ""}Stage changed to ${targetStage}: ${reason}` : deal.notes,
       },
       include: {
-        customer: { select: { companyName: true } },
+        customer: { select: { id: true, companyName: true } },
+        contact: { select: { id: true, firstName: true, lastName: true } },
+      },
+    });
+
+    await prisma.auditEvent.create({
+      data: {
+        workspaceId,
+        userId,
+        action: "deal:stage_changed",
+        entityType: "deal",
+        entityId: updated.id,
+        details: { previousStage: deal.stage, targetStage, reason },
       },
     });
 
@@ -544,12 +1288,60 @@ export class CRMService {
       updatedAt: updated.updatedAt.toISOString(),
     });
 
+    wsManager.broadcastToWorkspace(workspaceId, "crm:deal_stage_changed", {
+      dealId: updated.id,
+      stage: targetStage,
+    });
+
     return updated;
   }
 
+  public async archiveDeal(workspaceId: string, dealId: string, archive = true, userId?: string) {
+    const existing = await this.getDeal(workspaceId, dealId);
+
+    const updated = await prisma.deal.update({
+      where: { id: existing.id },
+      data: { isArchived: archive },
+    });
+
+    await prisma.auditEvent.create({
+      data: {
+        workspaceId,
+        userId,
+        action: archive ? "deal:archived" : "deal:restored",
+        entityType: "deal",
+        entityId: updated.id,
+      },
+    });
+
+    return updated;
+  }
+
+  public async deleteDeal(workspaceId: string, dealId: string, userId?: string) {
+    const existing = await this.getDeal(workspaceId, dealId);
+
+    await prisma.deal.delete({
+      where: { id: existing.id },
+    });
+
+    await prisma.auditEvent.create({
+      data: {
+        workspaceId,
+        userId,
+        action: "deal:deleted",
+        entityType: "deal",
+        entityId: existing.id,
+        details: { title: existing.title },
+      },
+    });
+
+    return { id: existing.id, deleted: true };
+  }
+
+  // ── Pipeline Summary & Analytics ──────────────────────────────────────────
   public async getPipelineSummary(workspaceId: string) {
     const deals = await prisma.deal.findMany({
-      where: { workspaceId },
+      where: { workspaceId, isArchived: false },
       select: {
         stage: true,
         dealValue: true,
@@ -594,10 +1386,10 @@ export class CRMService {
 
     return {
       totalDeals: deals.length,
-      totalActivePipelineValue,
-      totalWeightedPipelineValue,
-      totalWonValue,
-      totalLostValue,
+      totalActivePipelineValue: Math.round(totalActivePipelineValue * 100) / 100,
+      totalWeightedPipelineValue: Math.round(totalWeightedPipelineValue * 100) / 100,
+      totalWonValue: Math.round(totalWonValue * 100) / 100,
+      totalLostValue: Math.round(totalLostValue * 100) / 100,
       stageBreakdown: stageSummary,
     };
   }
@@ -608,12 +1400,13 @@ export class CRMService {
     const staleDeals = await prisma.deal.findMany({
       where: {
         workspaceId,
+        isArchived: false,
         stage: { in: ["QUALIFICATION", "CONTACTED", "PROPOSAL", "NEGOTIATION"] },
         updatedAt: { lt: cutoffDate },
       },
       orderBy: { updatedAt: "asc" },
       include: {
-        customer: { select: { companyName: true } },
+        customer: { select: { id: true, companyName: true } },
       },
     });
 
@@ -633,15 +1426,18 @@ export class CRMService {
   }
 
   // ── CRM Activities ────────────────────────────────────────────────────────
-  public async logActivity(workspaceId: string, data: {
-    entityType: "lead" | "deal" | "customer" | "contact";
-    entityId: string;
-    type: "note" | "call" | "meeting" | "email" | "follow_up";
-    title: string;
-    content?: string;
-    dueDate?: Date;
-    userId?: string;
-  }) {
+  public async logActivity(
+    workspaceId: string,
+    data: {
+      entityType: "lead" | "deal" | "customer" | "contact";
+      entityId: string;
+      type: "note" | "call" | "meeting" | "email" | "follow_up" | string;
+      title: string;
+      content?: string;
+      dueDate?: Date;
+      userId?: string;
+    }
+  ) {
     const activity = await prisma.cRMActivity.create({
       data: {
         workspaceId,
@@ -655,6 +1451,17 @@ export class CRMService {
       },
     });
 
+    await prisma.auditEvent.create({
+      data: {
+        workspaceId,
+        userId: data.userId,
+        action: "crm_activity:created",
+        entityType: "crm_activity",
+        entityId: activity.id,
+        details: { entityType: activity.entityType, entityId: activity.entityId, title: activity.title },
+      },
+    });
+
     wsManager.broadcastToWorkspace(workspaceId, "crm:activity_created", {
       activityId: activity.id,
       entityType: activity.entityType,
@@ -665,6 +1472,147 @@ export class CRMService {
     });
 
     return activity;
+  }
+
+  public async findActivitiesPaginated(
+    workspaceId: string,
+    filter: {
+      entityType?: "lead" | "deal" | "customer" | "contact";
+      entityId?: string;
+      type?: string;
+      isCompleted?: boolean;
+      page?: number;
+      limit?: number;
+      sortBy?: string;
+      sortOrder?: "asc" | "desc";
+    }
+  ) {
+    const where: any = { workspaceId };
+    if (filter.entityType) where.entityType = filter.entityType;
+    if (filter.entityId) where.entityId = filter.entityId;
+    if (filter.type) where.type = filter.type;
+    if (filter.isCompleted !== undefined) where.isCompleted = filter.isCompleted;
+
+    const page = Math.max(filter.page || 1, 1);
+    const limit = Math.min(Math.max(filter.limit || 20, 1), 100);
+    const skip = (page - 1) * limit;
+
+    const sortField = filter.sortBy || "createdAt";
+    const sortOrder = filter.sortOrder || "desc";
+    const orderBy: any = { [sortField]: sortOrder };
+
+    const [items, total] = await Promise.all([
+      prisma.cRMActivity.findMany({
+        where,
+        take: limit,
+        skip,
+        orderBy,
+      }),
+      prisma.cRMActivity.count({ where }),
+    ]);
+
+    return {
+      items,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit) || 1,
+    };
+  }
+
+  public async findActivities(
+    workspaceId: string,
+    filter: {
+      entityType?: "lead" | "deal" | "customer" | "contact";
+      entityId?: string;
+      type?: string;
+      isCompleted?: boolean;
+      page?: number;
+      limit?: number;
+      sortBy?: string;
+      sortOrder?: "asc" | "desc";
+    }
+  ) {
+    const res = await this.findActivitiesPaginated(workspaceId, filter);
+    return res.items;
+  }
+
+  public async updateActivity(
+    workspaceId: string,
+    activityId: string,
+    data: {
+      title?: string;
+      content?: string;
+      type?: string;
+      dueDate?: Date | null;
+      isCompleted?: boolean;
+    },
+    userId?: string
+  ) {
+    const existing = await prisma.cRMActivity.findFirst({
+      where: { id: activityId, workspaceId },
+    });
+
+    if (!existing) {
+      throw new NotFoundError(`Activity '${activityId}' not found in workspace`);
+    }
+
+    const completedAt =
+      data.isCompleted !== undefined
+        ? data.isCompleted
+          ? new Date()
+          : null
+        : existing.completedAt;
+
+    const updated = await prisma.cRMActivity.update({
+      where: { id: existing.id },
+      data: {
+        title: data.title?.trim(),
+        content: data.content?.trim(),
+        type: data.type,
+        dueDate: data.dueDate,
+        isCompleted: data.isCompleted,
+        completedAt,
+      },
+    });
+
+    await prisma.auditEvent.create({
+      data: {
+        workspaceId,
+        userId,
+        action: "crm_activity:updated",
+        entityType: "crm_activity",
+        entityId: updated.id,
+      },
+    });
+
+    return updated;
+  }
+
+  public async deleteActivity(workspaceId: string, activityId: string, userId?: string) {
+    const existing = await prisma.cRMActivity.findFirst({
+      where: { id: activityId, workspaceId },
+    });
+
+    if (!existing) {
+      throw new NotFoundError(`Activity '${activityId}' not found in workspace`);
+    }
+
+    await prisma.cRMActivity.delete({
+      where: { id: existing.id },
+    });
+
+    await prisma.auditEvent.create({
+      data: {
+        workspaceId,
+        userId,
+        action: "crm_activity:deleted",
+        entityType: "crm_activity",
+        entityId: existing.id,
+      },
+    });
+
+    return { id: existing.id, deleted: true };
   }
 
   public async getOverdueFollowups(workspaceId: string) {
@@ -689,6 +1637,132 @@ export class CRMService {
         dueDate: a.dueDate?.toISOString(),
         daysOverdue: Math.floor((now.getTime() - (a.dueDate?.getTime() || 0)) / (1000 * 60 * 60 * 24)),
       })),
+    };
+  }
+
+  // ── CRM Dashboard Analytics ───────────────────────────────────────────────
+  public async getCRMDashboard(workspaceId: string): Promise<CRMDashboardMetrics> {
+    const [
+      totalCustomers,
+      activeCustomers,
+      totalContacts,
+      leads,
+      deals,
+      recentActivitiesRaw,
+    ] = await Promise.all([
+      prisma.customer.count({ where: { workspaceId } }),
+      prisma.customer.count({ where: { workspaceId, status: "active", isArchived: false } }),
+      prisma.contact.count({ where: { workspaceId, isArchived: false } }),
+      prisma.lead.findMany({
+        where: { workspaceId, isArchived: false },
+        select: { stage: true, priority: true, isConverted: true },
+      }),
+      prisma.deal.findMany({
+        where: { workspaceId, isArchived: false },
+        select: { stage: true, dealValue: true, probability: true },
+      }),
+      prisma.cRMActivity.findMany({
+        where: { workspaceId },
+        orderBy: { createdAt: "desc" },
+        take: 10,
+      }),
+    ]);
+
+    // Lead metrics
+    let openLeads = 0;
+    let convertedLeads = 0;
+    const leadStageDistribution: Record<string, number> = {};
+    const leadPriorityDistribution: Record<string, number> = {};
+
+    for (const l of leads) {
+      if (l.isConverted) {
+        convertedLeads++;
+      } else {
+        openLeads++;
+      }
+      leadStageDistribution[l.stage] = (leadStageDistribution[l.stage] || 0) + 1;
+      leadPriorityDistribution[l.priority] = (leadPriorityDistribution[l.priority] || 0) + 1;
+    }
+
+    // Deal and pipeline metrics
+    const stageSummary: Record<DealStage, { count: number; totalValue: number; weightedValue: number }> = {
+      QUALIFICATION: { count: 0, totalValue: 0, weightedValue: 0 },
+      CONTACTED: { count: 0, totalValue: 0, weightedValue: 0 },
+      PROPOSAL: { count: 0, totalValue: 0, weightedValue: 0 },
+      NEGOTIATION: { count: 0, totalValue: 0, weightedValue: 0 },
+      WON: { count: 0, totalValue: 0, weightedValue: 0 },
+      LOST: { count: 0, totalValue: 0, weightedValue: 0 },
+    };
+
+    let openDeals = 0;
+    let wonDeals = 0;
+    let lostDeals = 0;
+    let totalPipelineValue = 0;
+    let totalWeightedPipelineValue = 0;
+    let wonRevenue = 0;
+
+    for (const d of deals) {
+      const stage = d.stage as DealStage;
+      if (stageSummary[stage]) {
+        stageSummary[stage].count += 1;
+        stageSummary[stage].totalValue += d.dealValue;
+        const weighted = (d.dealValue * (d.probability || 0)) / 100;
+        stageSummary[stage].weightedValue += weighted;
+
+        if (stage === "WON") {
+          wonDeals++;
+          wonRevenue += d.dealValue;
+        } else if (stage === "LOST") {
+          lostDeals++;
+        } else {
+          openDeals++;
+          totalPipelineValue += d.dealValue;
+          totalWeightedPipelineValue += weighted;
+        }
+      }
+    }
+
+    const conversionRate =
+      leads.length > 0
+        ? Math.round((convertedLeads / leads.length) * 1000) / 10
+        : deals.length > 0
+        ? Math.round((wonDeals / deals.length) * 1000) / 10
+        : 0;
+
+    const recentActivities = recentActivitiesRaw.map((a) => ({
+      id: a.id,
+      entityType: a.entityType as any,
+      entityId: a.entityId,
+      type: a.type,
+      title: a.title,
+      content: a.content,
+      dueDate: a.dueDate ? a.dueDate.toISOString() : null,
+      isCompleted: a.isCompleted,
+      completedAt: a.completedAt ? a.completedAt.toISOString() : null,
+      userId: a.userId,
+      createdAt: a.createdAt.toISOString(),
+      updatedAt: a.updatedAt.toISOString(),
+    }));
+
+    return {
+      totalCustomers,
+      activeCustomers,
+      totalContacts,
+      openLeads,
+      convertedLeads,
+      openDeals,
+      wonDeals,
+      lostDeals,
+      totalPipelineValue: Math.round(totalPipelineValue * 100) / 100,
+      weightedPipelineValue: Math.round(totalWeightedPipelineValue * 100) / 100,
+      wonRevenue: Math.round(wonRevenue * 100) / 100,
+      conversionRate,
+      pipelineByStage: stageSummary,
+      leadDistribution: {
+        byStage: leadStageDistribution,
+        byPriority: leadPriorityDistribution,
+      },
+      recentActivities,
     };
   }
 }

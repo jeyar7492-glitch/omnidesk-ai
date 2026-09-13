@@ -15,6 +15,14 @@ import {
   SystemRole,
   DashboardMetrics,
   GlobalSearchResponse,
+  CRMDashboardMetrics,
+  CustomerDetail,
+  ContactSummary,
+  ContactDetail,
+  LeadDetail,
+  DealDetail,
+  CRMActivitySummary,
+  PaginatedResponse,
 } from "@omnidesk/shared-types";
 
 
@@ -191,6 +199,44 @@ export class ApiClient {
     }
 
     return (data.data !== undefined ? data.data : data) as T;
+  }
+
+  private async requestWithMeta<T>(path: string, options: RequestInit = {}, isRetry = false): Promise<{ data: T; meta?: any }> {
+    const headers = {
+      ...this.getHeaders(),
+      ...(options.headers || {}),
+    };
+
+    const res = await fetch(`${this.baseUrl}${path}`, {
+      ...options,
+      headers,
+    });
+
+    const data = await res.json().catch(() => ({}));
+
+    // Handle 401 Token Expiration with single retry
+    if (res.status === 401 && !isRetry && this.refreshTokenString && !path.startsWith("/auth/login") && !path.startsWith("/auth/refresh")) {
+      try {
+        await this.refreshToken();
+        return this.requestWithMeta<T>(path, options, true);
+      } catch {
+        this.clearSession();
+      }
+    }
+
+    if (!res.ok) {
+      const errorMsg = data.error?.message || data.message || `Request failed with HTTP ${res.status}`;
+      const err = new Error(errorMsg) as Error & { status: number; code?: string; details?: unknown };
+      err.status = res.status;
+      err.code = data.error?.code;
+      err.details = data.error?.details;
+      throw err;
+    }
+
+    return {
+      data: (data.data !== undefined ? data.data : data) as T,
+      meta: data.meta,
+    };
   }
 
   // ── Authentication Endpoints ──────────────────────────────────────────────
@@ -384,23 +430,313 @@ export class ApiClient {
     return this.getWorkload();
   }
 
+  private toQueryString(filter?: Record<string, any>): string {
+    if (!filter) return "";
+    const clean: Record<string, string> = {};
+    for (const [k, v] of Object.entries(filter)) {
+      if (v !== undefined && v !== null && v !== "") {
+        clean[k] = String(v);
+      }
+    }
+    const qs = new URLSearchParams(clean).toString();
+    return qs ? `?${qs}` : "";
+  }
+
   // ── CRM Endpoints ───────────────────────────────────────────────────────
-  public async getDeals(filter?: any): Promise<CRMDealSummary[]> {
-    const query = filter ? `?${new URLSearchParams(filter).toString()}` : "";
-    const res = await this.request<any>(`/crm/deals${query}`);
-    return Array.isArray(res) ? res : res.items || [];
+  public async getCRMDashboard(): Promise<CRMDashboardMetrics> {
+    return this.request<CRMDashboardMetrics>("/crm/dashboard");
   }
 
-  public async getLeads(filter?: any): Promise<CRMLeadSummary[]> {
-    const query = filter ? `?${new URLSearchParams(filter).toString()}` : "";
-    const res = await this.request<any>(`/crm/leads${query}`);
-    return Array.isArray(res) ? res : res.items || [];
-  }
-
+  // Customers
   public async getCustomers(filter?: any): Promise<CRMCustomerSummary[]> {
-    const query = filter ? `?${new URLSearchParams(filter).toString()}` : "";
-    const res = await this.request<any>(`/crm/customers${query}`);
+    const res = await this.request<any>(`/crm/customers${this.toQueryString(filter)}`);
     return Array.isArray(res) ? res : res.items || [];
+  }
+
+  public async getCustomersPaginated(filter?: any): Promise<PaginatedResponse<CRMCustomerSummary>> {
+    const res = await this.requestWithMeta<CRMCustomerSummary[]>(`/crm/customers${this.toQueryString(filter)}`);
+    return {
+      items: Array.isArray(res.data) ? res.data : [],
+      total: res.meta?.total ?? (Array.isArray(res.data) ? res.data.length : 0),
+      page: res.meta?.page ?? 1,
+      limit: res.meta?.limit ?? 20,
+      totalPages: res.meta?.totalPages ?? 1,
+    };
+  }
+
+  public async getCustomer(id: string): Promise<CustomerDetail> {
+    return this.request<CustomerDetail>(`/crm/customers/${id}`);
+  }
+
+  public async createCustomer(input: {
+    name: string;
+    domain?: string;
+    industry?: string;
+    status?: string;
+    healthScore?: number;
+    notes?: string;
+  }): Promise<CRMCustomerSummary> {
+    return this.request<CRMCustomerSummary>("/crm/customers", {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+  }
+
+  public async updateCustomer(id: string, input: Partial<{
+    name: string;
+    domain?: string;
+    industry?: string;
+    status?: string;
+    healthScore?: number;
+    notes?: string;
+  }>): Promise<CRMCustomerSummary> {
+    return this.request<CRMCustomerSummary>(`/crm/customers/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(input),
+    });
+  }
+
+  public async archiveCustomer(id: string): Promise<{ message: string }> {
+    return this.request<{ message: string }>(`/crm/customers/${id}/archive`, {
+      method: "POST",
+    });
+  }
+
+  public async deleteCustomer(id: string): Promise<{ message: string }> {
+    return this.request<{ message: string }>(`/crm/customers/${id}`, {
+      method: "DELETE",
+    });
+  }
+
+  // Contacts
+  public async getContacts(filter?: any): Promise<ContactSummary[]> {
+    const res = await this.request<any>(`/crm/contacts${this.toQueryString(filter)}`);
+    return Array.isArray(res) ? res : res.items || [];
+  }
+
+  public async getContactsPaginated(filter?: any): Promise<PaginatedResponse<ContactSummary>> {
+    const res = await this.requestWithMeta<ContactSummary[]>(`/crm/contacts${this.toQueryString(filter)}`);
+    return {
+      items: Array.isArray(res.data) ? res.data : [],
+      total: res.meta?.total ?? (Array.isArray(res.data) ? res.data.length : 0),
+      page: res.meta?.page ?? 1,
+      limit: res.meta?.limit ?? 20,
+      totalPages: res.meta?.totalPages ?? 1,
+    };
+  }
+
+  public async getContact(id: string): Promise<ContactDetail> {
+    return this.request<ContactDetail>(`/crm/contacts/${id}`);
+  }
+
+  public async createContact(input: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone?: string;
+    jobTitle?: string;
+    customerId?: string;
+    isPrimary?: boolean;
+  }): Promise<ContactSummary> {
+    return this.request<ContactSummary>("/crm/contacts", {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+  }
+
+  public async updateContact(id: string, input: Partial<{
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone?: string;
+    jobTitle?: string;
+    customerId?: string | null;
+    isPrimary?: boolean;
+  }>): Promise<ContactSummary> {
+    return this.request<ContactSummary>(`/crm/contacts/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(input),
+    });
+  }
+
+  public async archiveContact(id: string): Promise<{ message: string }> {
+    return this.request<{ message: string }>(`/crm/contacts/${id}/archive`, {
+      method: "POST",
+    });
+  }
+
+  public async deleteContact(id: string): Promise<{ message: string }> {
+    return this.request<{ message: string }>(`/crm/contacts/${id}`, {
+      method: "DELETE",
+    });
+  }
+
+  // Leads
+  public async getLeads(filter?: any): Promise<CRMLeadSummary[]> {
+    const res = await this.request<any>(`/crm/leads${this.toQueryString(filter)}`);
+    return Array.isArray(res) ? res : res.items || [];
+  }
+
+  public async getLeadsPaginated(filter?: any): Promise<PaginatedResponse<CRMLeadSummary>> {
+    const res = await this.requestWithMeta<CRMLeadSummary[]>(`/crm/leads${this.toQueryString(filter)}`);
+    return {
+      items: Array.isArray(res.data) ? res.data : [],
+      total: res.meta?.total ?? (Array.isArray(res.data) ? res.data.length : 0),
+      page: res.meta?.page ?? 1,
+      limit: res.meta?.limit ?? 20,
+      totalPages: res.meta?.totalPages ?? 1,
+    };
+  }
+
+  public async getLead(id: string): Promise<LeadDetail> {
+    return this.request<LeadDetail>(`/crm/leads/${id}`);
+  }
+
+  public async createLead(input: {
+    title: string;
+    customerId?: string;
+    customerName?: string;
+    contactName?: string;
+    contactEmail?: string;
+    contactPhone?: string;
+    dealValue?: number;
+    priority?: string;
+    source?: string;
+    stage?: string;
+    status?: string;
+    notes?: string;
+  }): Promise<CRMLeadSummary> {
+    return this.request<CRMLeadSummary>("/crm/leads", {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+  }
+
+  public async updateLead(id: string, input: Partial<{
+    title: string;
+    customerId?: string;
+    customerName?: string;
+    contactName?: string;
+    contactEmail?: string;
+    contactPhone?: string;
+    dealValue?: number;
+    priority?: string;
+    source?: string;
+    stage?: string;
+    status?: string;
+    notes?: string;
+  }>): Promise<CRMLeadSummary> {
+    return this.request<CRMLeadSummary>(`/crm/leads/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(input),
+    });
+  }
+
+  public async convertLead(id: string, input: {
+    createCustomer?: boolean;
+    customerName?: string;
+    existingCustomerId?: string;
+    createContact?: boolean;
+    contactFirstName?: string;
+    contactLastName?: string;
+    contactEmail?: string;
+    createDeal?: boolean;
+    dealTitle?: string;
+    dealValue?: number;
+  }): Promise<{ customer: any; contact?: any; deal?: any }> {
+    return this.request<{ customer: any; contact?: any; deal?: any }>(`/crm/leads/${id}/convert`, {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+  }
+
+  public async archiveLead(id: string): Promise<{ message: string }> {
+    return this.request<{ message: string }>(`/crm/leads/${id}/archive`, {
+      method: "POST",
+    });
+  }
+
+  public async deleteLead(id: string): Promise<{ message: string }> {
+    return this.request<{ message: string }>(`/crm/leads/${id}`, {
+      method: "DELETE",
+    });
+  }
+
+  // Deals
+  public async getDeals(filter?: any): Promise<CRMDealSummary[]> {
+    const res = await this.request<any>(`/crm/deals${this.toQueryString(filter)}`);
+    return Array.isArray(res) ? res : res.items || [];
+  }
+
+  public async getDealsPaginated(filter?: any): Promise<PaginatedResponse<CRMDealSummary>> {
+    const res = await this.requestWithMeta<CRMDealSummary[]>(`/crm/deals${this.toQueryString(filter)}`);
+    return {
+      items: Array.isArray(res.data) ? res.data : [],
+      total: res.meta?.total ?? (Array.isArray(res.data) ? res.data.length : 0),
+      page: res.meta?.page ?? 1,
+      limit: res.meta?.limit ?? 20,
+      totalPages: res.meta?.totalPages ?? 1,
+    };
+  }
+
+  public async getDeal(id: string): Promise<DealDetail> {
+    return this.request<DealDetail>(`/crm/deals/${id}`);
+  }
+
+  public async createDeal(input: {
+    title: string;
+    stage?: string;
+    dealValue: number;
+    currency?: string;
+    probability?: number;
+    expectedClose?: string;
+    priority?: string;
+    customerId?: string;
+    contactId?: string;
+    leadId?: string;
+    notes?: string;
+  }): Promise<CRMDealSummary> {
+    return this.request<CRMDealSummary>("/crm/deals", {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+  }
+
+  public async updateDeal(id: string, input: Partial<{
+    title: string;
+    stage?: string;
+    dealValue?: number;
+    currency?: string;
+    probability?: number;
+    expectedClose?: string;
+    priority?: string;
+    customerId?: string | null;
+    contactId?: string | null;
+    notes?: string | null;
+  }>): Promise<CRMDealSummary> {
+    return this.request<CRMDealSummary>(`/crm/deals/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(input),
+    });
+  }
+
+  public async moveDeal(id: string, targetStage: string, reason?: string): Promise<CRMDealSummary> {
+    return this.request<CRMDealSummary>(`/crm/deals/${id}/stage`, {
+      method: "POST",
+      body: JSON.stringify({ targetStage, reason }),
+    });
+  }
+
+  public async archiveDeal(id: string): Promise<{ message: string }> {
+    return this.request<{ message: string }>(`/crm/deals/${id}/archive`, {
+      method: "POST",
+    });
+  }
+
+  public async deleteDeal(id: string): Promise<{ message: string }> {
+    return this.request<{ message: string }>(`/crm/deals/${id}`, {
+      method: "DELETE",
+    });
   }
 
   public async getPipelineSummary(): Promise<PipelineSummary> {
@@ -410,6 +746,57 @@ export class ApiClient {
   public async getStaleDeals(): Promise<CRMDealSummary[]> {
     const res = await this.request<any>("/crm/pipeline/stale");
     return Array.isArray(res) ? res : res.items || res.staleDeals || [];
+  }
+
+  // Activities
+  public async getActivities(filter?: any): Promise<CRMActivitySummary[]> {
+    const res = await this.request<any>(`/crm/activities${this.toQueryString(filter)}`);
+    return Array.isArray(res) ? res : res.items || [];
+  }
+
+  public async getActivitiesPaginated(filter?: any): Promise<PaginatedResponse<CRMActivitySummary>> {
+    const res = await this.requestWithMeta<CRMActivitySummary[]>(`/crm/activities${this.toQueryString(filter)}`);
+    return {
+      items: Array.isArray(res.data) ? res.data : [],
+      total: res.meta?.total ?? (Array.isArray(res.data) ? res.data.length : 0),
+      page: res.meta?.page ?? 1,
+      limit: res.meta?.limit ?? 20,
+      totalPages: res.meta?.totalPages ?? 1,
+    };
+  }
+
+  public async createActivity(input: {
+    entityType: "lead" | "deal" | "customer" | "contact";
+    entityId: string;
+    type?: string;
+    title: string;
+    content?: string;
+    dueDate?: string;
+    isCompleted?: boolean;
+  }): Promise<CRMActivitySummary> {
+    return this.request<CRMActivitySummary>("/crm/activities", {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+  }
+
+  public async updateActivity(id: string, input: Partial<{
+    title?: string;
+    content?: string;
+    type?: string;
+    dueDate?: string | null;
+    isCompleted?: boolean;
+  }>): Promise<CRMActivitySummary> {
+    return this.request<CRMActivitySummary>(`/crm/activities/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(input),
+    });
+  }
+
+  public async deleteActivity(id: string): Promise<{ message: string }> {
+    return this.request<{ message: string }>(`/crm/activities/${id}`, {
+      method: "DELETE",
+    });
   }
 
   // ── Dashboard Endpoints ──────────────────────────────────────────────────
