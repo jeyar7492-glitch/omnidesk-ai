@@ -273,7 +273,7 @@ describe("CRM REST API Endpoints (/api/v1/crm/*)", () => {
       expect(updatedLead?.convertedCustomerId).toBe(res.body.data.customer.id);
     });
 
-    it("Rejects duplicate conversion attempt with 400 ValidationError", async () => {
+    it("Rejects duplicate conversion attempt with 422 ValidationError", async () => {
       const lead = await prisma.lead.create({
         data: {
           workspaceId: testWorkspaceId,
