@@ -9,6 +9,11 @@ import { tasksRouter } from "../tasks/routes/tasks.router";
 import { dashboardRouter } from "../dashboard/routes/dashboard.router";
 import { searchRouter } from "../search/routes/search.router";
 import { financeRouter } from "../finance/routes/finance.router";
+import {
+  documentRouter,
+  knowledgeBaseRouter,
+  knowledgeSearchRouter,
+} from "../documents/routes/document.router";
 
 export const v1Router = Router();
 
@@ -23,5 +28,6 @@ v1Router.use("/tasks", tasksRouter);
 v1Router.use("/dashboard", dashboardRouter);
 v1Router.use("/search", searchRouter);
 v1Router.use("/finance", financeRouter);
-
-
+v1Router.use("/documents", documentRouter);
+v1Router.use("/knowledge-bases", knowledgeBaseRouter);
+v1Router.use("/knowledge", knowledgeSearchRouter);

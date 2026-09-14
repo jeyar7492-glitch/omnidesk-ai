@@ -12,12 +12,14 @@ import {
   ArrowRight,
   Loader2,
   Receipt,
+  FileText,
+  BookOpen,
 } from "lucide-react";
 
 interface GlobalSearchModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onNavigate: (tab: "dashboard" | "ai" | "projects" | "tasks" | "crm" | "system" | "finance", entityId?: string) => void;
+  onNavigate: (tab: "dashboard" | "ai" | "projects" | "tasks" | "crm" | "system" | "finance" | "documents" | "knowledge", entityId?: string) => void;
 }
 
 export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
@@ -42,6 +44,8 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
       ...(groups.milestones || []),
       ...(groups.ai || []),
       ...(groups.finance || []),
+      ...(groups.documents || []),
+      ...(groups.knowledgeBases || []),
     ];
   }, [results]);
 
@@ -140,6 +144,10 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
       case "payment":
       case "expense":
         return <Receipt size={15} color="#38bdf8" />;
+      case "document":
+        return <FileText size={15} color="var(--brand-cyan)" />;
+      case "knowledge_base":
+        return <BookOpen size={15} color="#8b5cf6" />;
       default:
         return <Search size={15} color="var(--text-muted)" />;
     }
@@ -477,6 +485,88 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                         </div>
                         <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
                           <span style={{ fontSize: "0.7rem", color: "#38bdf8", background: "var(--bg-elevated)", padding: "0.15rem 0.4rem", borderRadius: "4px" }}>{item.badge || item.status || "Finance"}</span>
+                          <ArrowRight size={12} color="var(--text-muted)" />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Group: Documents */}
+              {results?.resultsByGroup.documents && results.resultsByGroup.documents.length > 0 && (
+                <div>
+                  <div style={{ fontSize: "0.7rem", fontWeight: 700, textTransform: "uppercase", color: "var(--text-muted)", padding: "0.25rem 0.5rem", letterSpacing: "0.05em" }}>
+                    Documents ({results.resultsByGroup.documents.length})
+                  </div>
+                  {results.resultsByGroup.documents.map((item) => {
+                    const globalIdx = flattenedItems.findIndex((x) => x.id === item.id);
+                    const isSelected = globalIdx === selectedIndex;
+                    return (
+                      <div
+                        key={item.id}
+                        onClick={() => handleSelect(item)}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          padding: "0.6rem 0.75rem",
+                          borderRadius: "8px",
+                          cursor: "pointer",
+                          background: isSelected ? "rgba(6, 182, 212, 0.15)" : "transparent",
+                          border: isSelected ? "1px solid var(--brand-cyan)" : "1px solid transparent",
+                        }}
+                      >
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+                          {getEntityIcon(item.entityType)}
+                          <div>
+                            <div style={{ fontWeight: 600, fontSize: "0.85rem", color: "var(--text-primary)" }}>{item.title}</div>
+                            {item.subtitle && <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>{item.subtitle}</div>}
+                          </div>
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                          <span className="badge" style={{ fontSize: "0.7rem" }}>{item.badge || "Document"}</span>
+                          <ArrowRight size={12} color="var(--text-muted)" />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Group: Knowledge Bases */}
+              {results?.resultsByGroup.knowledgeBases && results.resultsByGroup.knowledgeBases.length > 0 && (
+                <div>
+                  <div style={{ fontSize: "0.7rem", fontWeight: 700, textTransform: "uppercase", color: "var(--text-muted)", padding: "0.25rem 0.5rem", letterSpacing: "0.05em" }}>
+                    Knowledge Bases ({results.resultsByGroup.knowledgeBases.length})
+                  </div>
+                  {results.resultsByGroup.knowledgeBases.map((item) => {
+                    const globalIdx = flattenedItems.findIndex((x) => x.id === item.id);
+                    const isSelected = globalIdx === selectedIndex;
+                    return (
+                      <div
+                        key={item.id}
+                        onClick={() => handleSelect(item)}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          padding: "0.6rem 0.75rem",
+                          borderRadius: "8px",
+                          cursor: "pointer",
+                          background: isSelected ? "rgba(139, 92, 246, 0.15)" : "transparent",
+                          border: isSelected ? "1px solid #8b5cf6" : "1px solid transparent",
+                        }}
+                      >
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+                          {getEntityIcon(item.entityType)}
+                          <div>
+                            <div style={{ fontWeight: 600, fontSize: "0.85rem", color: "var(--text-primary)" }}>{item.title}</div>
+                            {item.subtitle && <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>{item.subtitle}</div>}
+                          </div>
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                          <span className="badge" style={{ fontSize: "0.7rem", color: "#8b5cf6" }}>KB</span>
                           <ArrowRight size={12} color="var(--text-muted)" />
                         </div>
                       </div>

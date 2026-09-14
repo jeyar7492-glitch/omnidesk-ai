@@ -131,6 +131,7 @@ model Workspace {
   expenseCategories ExpenseCategory[]
   vendors         Vendor[]
   documents       Document[]
+  knowledgeBases  KnowledgeBase[]
   channels        Channel[]
   meetings        Meeting[]
   automations     AutomationRule[]
@@ -648,33 +649,116 @@ model Vendor {
 }
 
 model Document {
-  id          String          @id @default(auto()) @map("_id") @db.ObjectId
-  workspaceId String          @db.ObjectId
-  workspace   Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  title       String
-  category    String          @default("General")
-  filePath    String
-  fileSize    Int             @default(0)
-  mimeType    String          @default("application/pdf")
-  version     String          @default("1.0")
-  authorId    String?         @db.ObjectId
-  status      String          @default("approved")
-  chunks      DocumentChunk[]
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
+  id               String                  @id @default(auto()) @map("_id") @db.ObjectId
+  workspaceId      String                  @db.ObjectId
+  workspace        Workspace               @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  name             String
+  title            String?                 // backward compatibility with old skeleton
+  originalFileName String
+  mimeType         String                  @default("application/pdf")
+  extension        String
+  sizeBytes        Int                     @default(0)
+  filePath         String?                 // backward compatibility
+  fileSize         Int?                    @default(0) // backward compatibility
+  storageProvider  String                  @default("local")
+  storageKey       String
+  checksum         String
+  status           String                  @default("ready") // uploading, processing, ready, failed, archived
+  description      String?
+  category         String?                 @default("General")
+  folderPath       String?                 @default("/")
+  ownerId          String?                 @db.ObjectId
+  uploadedBy       String?                 @db.ObjectId
+  currentVersionId String?                 @db.ObjectId
+  isArchived       Boolean                 @default(false)
+  processingError  String?
+  extractedText    String?
+  metadata         Json?
+  versions         DocumentVersion[]
+  chunks           DocumentChunk[]
+  knowledgeBases   KnowledgeBaseDocument[]
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
 
+  @@index([workspaceId, name])
+  @@index([workspaceId, status])
+  @@index([workspaceId, isArchived])
+  @@index([workspaceId, ownerId])
+  @@index([workspaceId, createdAt])
+  @@index([workspaceId, checksum])
   @@index([workspaceId, category])
 }
 
+model DocumentVersion {
+  id               String          @id @default(auto()) @map("_id") @db.ObjectId
+  documentId       String          @db.ObjectId
+  document         Document        @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  versionNumber    Int             @default(1)
+  storageKey       String
+  checksum         String
+  sizeBytes        Int             @default(0)
+  extractedText    String?
+  createdBy        String?         @db.ObjectId
+  metadata         Json?
+  chunks           DocumentChunk[]
+  createdAt        DateTime        @default(now())
+
+  @@unique([documentId, versionNumber])
+  @@index([documentId, createdAt])
+}
+
 model DocumentChunk {
-  id         String   @id @default(auto()) @map("_id") @db.ObjectId
-  documentId String   @db.ObjectId
-  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
-  chunkIndex Int
-  content    String
-  tokenCount Int      @default(0)
-  embedding  Float[]  @default([])
-  createdAt  DateTime @default(now())
+  id                String           @id @default(auto()) @map("_id") @db.ObjectId
+  workspaceId       String           @db.ObjectId
+  documentId        String           @db.ObjectId
+  document          Document         @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  documentVersionId String?          @db.ObjectId
+  documentVersion   DocumentVersion? @relation(fields: [documentVersionId], references: [id], onDelete: Cascade)
+  chunkIndex        Int
+  content           String
+  tokenCount        Int              @default(0)
+  characterCount    Int              @default(0)
+  contentHash       String?
+  embedding         Float[]          @default([])
+  metadata          Json?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  @@index([workspaceId, documentId])
+  @@index([workspaceId, documentVersionId])
+  @@index([documentId, chunkIndex])
+  @@index([workspaceId, contentHash])
+}
+
+model KnowledgeBase {
+  id          String                  @id @default(auto()) @map("_id") @db.ObjectId
+  workspaceId String                  @db.ObjectId
+  workspace   Workspace               @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  status      String                  @default("active") // active, archived
+  createdBy   String?                 @db.ObjectId
+  isArchived  Boolean                 @default(false)
+  documents   KnowledgeBaseDocument[]
+  createdAt   DateTime                @default(now())
+  updatedAt   DateTime                @updatedAt
+
+  @@index([workspaceId, name])
+  @@index([workspaceId, isArchived])
+}
+
+model KnowledgeBaseDocument {
+  id              String        @id @default(auto()) @map("_id") @db.ObjectId
+  knowledgeBaseId String        @db.ObjectId
+  knowledgeBase   KnowledgeBase @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
+  documentId      String        @db.ObjectId
+  document        Document      @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  addedBy         String?       @db.ObjectId
+  createdAt       DateTime      @default(now())
+
+  @@unique([knowledgeBaseId, documentId])
+  @@index([knowledgeBaseId])
+  @@index([documentId])
 }
 
 model Channel {

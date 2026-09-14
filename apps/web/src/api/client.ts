@@ -42,6 +42,14 @@ import {
   ProjectProfitabilityReport,
   CustomerFinanceSummary,
   ProjectFinanceSummary,
+  DocumentSummary,
+  DocumentDetail,
+  DocumentVersionSummary,
+  DocumentChunkSummary,
+  KnowledgeBaseSummary,
+  KnowledgeBaseDetail,
+  KnowledgeSearchResponse,
+  RAGContext,
 } from "@omnidesk/shared-types";
 
 
@@ -108,6 +116,11 @@ export class ApiClient {
       "finance:write",
       "finance:approve",
       "finance:delete",
+      "documents:read",
+      "documents:write",
+      "documents:delete",
+      "knowledgebase:read",
+      "knowledgebase:write",
       "system:admin",
     ],
   };
@@ -190,10 +203,14 @@ export class ApiClient {
   }
 
   private async request<T>(path: string, options: RequestInit = {}, isRetry = false): Promise<T> {
-    const headers = {
+    const headers: Record<string, string> = {
       ...this.getHeaders(),
-      ...(options.headers || {}),
+      ...(options.headers as any || {}),
     };
+
+    if (typeof FormData !== "undefined" && options.body instanceof FormData) {
+      delete headers["Content-Type"];
+    }
 
     const res = await fetch(`${this.baseUrl}${path}`, {
       ...options,
@@ -1342,6 +1359,134 @@ export class ApiClient {
   // ── Health Endpoint ─────────────────────────────────────────────────────
   public async getHealth(): Promise<{ status: string }> {
     return this.request<{ status: string }>("/health");
+  }
+
+  // ── Phase 7 Documents & Knowledge Base Endpoints ────────────────────────
+  public async listDocuments(query?: any): Promise<{ documents: DocumentSummary[]; total: number; page: number; limit: number; totalPages: number }> {
+    const res = await this.request<{ documents: DocumentSummary[]; total: number; page: number; limit: number; totalPages: number } | DocumentSummary[]>(
+      `/documents${this.toQueryString(query)}`
+    );
+    if (Array.isArray(res)) {
+      return { documents: res, total: res.length, page: 1, limit: res.length, totalPages: 1 };
+    }
+    return res;
+  }
+
+  public async uploadDocument(formData: FormData): Promise<DocumentDetail> {
+    return this.request<DocumentDetail>("/documents", {
+      method: "POST",
+      body: formData,
+    });
+  }
+
+  public async getDocument(documentId: string): Promise<DocumentDetail> {
+    return this.request<DocumentDetail>(`/documents/${documentId}`);
+  }
+
+  public async updateDocument(documentId: string, data: { name?: string; description?: string; category?: string; folderPath?: string; isArchived?: boolean }): Promise<DocumentDetail> {
+    return this.request<DocumentDetail>(`/documents/${documentId}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+  }
+
+  public async archiveDocument(documentId: string): Promise<DocumentDetail> {
+    return this.request<DocumentDetail>(`/documents/${documentId}/archive`, {
+      method: "POST",
+    });
+  }
+
+  public async reprocessDocument(documentId: string): Promise<DocumentDetail> {
+    return this.request<DocumentDetail>(`/documents/${documentId}/reprocess`, {
+      method: "POST",
+    });
+  }
+
+  public async getDocumentVersions(documentId: string): Promise<DocumentVersionSummary[]> {
+    return this.request<DocumentVersionSummary[]>(`/documents/${documentId}/versions`);
+  }
+
+  public async createDocumentVersion(documentId: string, formData: FormData): Promise<DocumentDetail> {
+    return this.request<DocumentDetail>(`/documents/${documentId}/versions`, {
+      method: "POST",
+      body: formData,
+    });
+  }
+
+  public async getDocumentChunks(documentId: string): Promise<DocumentChunkSummary[]> {
+    return this.request<DocumentChunkSummary[]>(`/documents/${documentId}/chunks`);
+  }
+
+  public getDocumentDownloadUrl(documentId: string, versionNumber?: number): string {
+    const query = versionNumber ? `?version=${versionNumber}` : "";
+    return `${this.baseUrl}/documents/${documentId}/download${query}`;
+  }
+
+  // Knowledge Base Endpoints
+  public async listKnowledgeBases(query?: any): Promise<{ knowledgeBases: KnowledgeBaseSummary[]; total: number }> {
+    const res = await this.request<{ knowledgeBases: KnowledgeBaseSummary[]; total: number } | KnowledgeBaseSummary[]>(
+      `/knowledge-bases${this.toQueryString(query)}`
+    );
+    if (Array.isArray(res)) {
+      return { knowledgeBases: res, total: res.length };
+    }
+    return res;
+  }
+
+  public async createKnowledgeBase(data: { name: string; description?: string }): Promise<KnowledgeBaseSummary> {
+    return this.request<KnowledgeBaseSummary>("/knowledge-bases", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  public async getKnowledgeBase(kbId: string): Promise<KnowledgeBaseDetail> {
+    return this.request<KnowledgeBaseDetail>(`/knowledge-bases/${kbId}`);
+  }
+
+  public async updateKnowledgeBase(kbId: string, data: { name?: string; description?: string; isArchived?: boolean }): Promise<KnowledgeBaseSummary> {
+    return this.request<KnowledgeBaseSummary>(`/knowledge-bases/${kbId}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+  }
+
+  public async archiveKnowledgeBase(kbId: string): Promise<KnowledgeBaseSummary> {
+    return this.request<KnowledgeBaseSummary>(`/knowledge-bases/${kbId}`, {
+      method: "DELETE",
+    });
+  }
+
+  public async addDocumentToKnowledgeBase(kbId: string, documentId: string): Promise<{ added: boolean }> {
+    return this.request<{ added: boolean }>(`/knowledge-bases/${kbId}/documents`, {
+      method: "POST",
+      body: JSON.stringify({ documentId }),
+    });
+  }
+
+  public async removeDocumentFromKnowledgeBase(kbId: string, documentId: string): Promise<{ removed: boolean }> {
+    return this.request<{ removed: boolean }>(`/knowledge-bases/${kbId}/documents/${documentId}`, {
+      method: "DELETE",
+    });
+  }
+
+  public async listKnowledgeBaseDocuments(kbId: string): Promise<DocumentSummary[]> {
+    return this.request<DocumentSummary[]>(`/knowledge-bases/${kbId}/documents`);
+  }
+
+  // Knowledge Search & RAG
+  public async searchKnowledge(query: string, options: { knowledgeBaseId?: string; documentId?: string; mode?: "keyword" | "semantic" | "hybrid"; topK?: number } = {}): Promise<KnowledgeSearchResponse> {
+    return this.request<KnowledgeSearchResponse>("/knowledge/search", {
+      method: "POST",
+      body: JSON.stringify({ query, ...options }),
+    });
+  }
+
+  public async getKnowledgeContext(query: string, options: { knowledgeBaseId?: string; topK?: number } = {}): Promise<RAGContext> {
+    return this.request<RAGContext>("/knowledge/context", {
+      method: "POST",
+      body: JSON.stringify({ query, ...options }),
+    });
   }
 }
 

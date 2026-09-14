@@ -23,6 +23,8 @@ export class SearchService {
           milestones: [],
           ai: [],
           finance: [],
+          documents: [],
+          knowledgeBases: [],
         },
       };
     }
@@ -42,6 +44,8 @@ export class SearchService {
       invoices,
       payments,
       expenses,
+      documents,
+      knowledgeBases,
     ] = await Promise.all([
       // 1. Projects
       prisma.project.findMany({
@@ -265,6 +269,48 @@ export class SearchService {
         },
         take: perEntityLimit,
       }),
+
+      // 12. Documents
+      prisma.document.findMany({
+        where: {
+          workspaceId,
+          isArchived: false,
+          OR: [
+            { name: { contains: trimmedQuery, mode: "insensitive" } },
+            { originalFileName: { contains: trimmedQuery, mode: "insensitive" } },
+            { description: { contains: trimmedQuery, mode: "insensitive" } },
+            { category: { contains: trimmedQuery, mode: "insensitive" } },
+          ],
+        },
+        select: {
+          id: true,
+          name: true,
+          originalFileName: true,
+          sizeBytes: true,
+          category: true,
+          status: true,
+        },
+        take: perEntityLimit,
+      }),
+
+      // 13. Knowledge Bases
+      prisma.knowledgeBase.findMany({
+        where: {
+          workspaceId,
+          isArchived: false,
+          OR: [
+            { name: { contains: trimmedQuery, mode: "insensitive" } },
+            { description: { contains: trimmedQuery, mode: "insensitive" } },
+          ],
+        },
+        select: {
+          id: true,
+          name: true,
+          description: true,
+          status: true,
+        },
+        take: perEntityLimit,
+      }),
     ]);
 
     // Format Projects
@@ -412,6 +458,34 @@ export class SearchService {
       })),
     ];
 
+    // Format Documents
+    const documentResults: SearchResultItem[] = documents.map((d: any) => ({
+      id: d.id,
+      entityType: "document" as const,
+      title: d.name,
+      subtitle: `${d.category || "General"} • ${(d.sizeBytes / 1024).toFixed(1)} KB`,
+      status: d.status,
+      badge: "Document",
+      navigationTarget: {
+        tab: "documents" as const,
+        entityId: d.id,
+      },
+    }));
+
+    // Format Knowledge Bases
+    const kbResults: SearchResultItem[] = knowledgeBases.map((kb: any) => ({
+      id: kb.id,
+      entityType: "knowledge_base" as const,
+      title: kb.name,
+      subtitle: kb.description ? kb.description.slice(0, 80) : "Knowledge Base",
+      status: kb.status,
+      badge: "Knowledge Base",
+      navigationTarget: {
+        tab: "documents" as const,
+        entityId: kb.id,
+      },
+    }));
+
     // Apply limits per group
     const slicedProjects = projectResults.slice(0, limit);
     const slicedTasks = taskResults.slice(0, limit);
@@ -419,6 +493,8 @@ export class SearchService {
     const slicedMilestones = milestoneResults.slice(0, limit);
     const slicedAi = aiResults.slice(0, limit);
     const slicedFinance = financeResults.slice(0, limit);
+    const slicedDocuments = documentResults.slice(0, limit);
+    const slicedKb = kbResults.slice(0, limit);
 
     const totalResults =
       slicedProjects.length +
@@ -426,7 +502,9 @@ export class SearchService {
       slicedCrm.length +
       slicedMilestones.length +
       slicedAi.length +
-      slicedFinance.length;
+      slicedFinance.length +
+      slicedDocuments.length +
+      slicedKb.length;
 
     return {
       query: trimmedQuery,
@@ -438,6 +516,8 @@ export class SearchService {
         milestones: slicedMilestones,
         ai: slicedAi,
         finance: slicedFinance,
+        documents: slicedDocuments,
+        knowledgeBases: slicedKb,
       },
     };
   }

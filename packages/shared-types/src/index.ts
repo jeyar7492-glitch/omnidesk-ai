@@ -850,7 +850,9 @@ export type SearchEntityType =
   | "ai_execution"
   | "invoice"
   | "payment"
-  | "expense";
+  | "expense"
+  | "document"
+  | "knowledge_base";
 
 export interface SearchResultItem {
   id: string;
@@ -861,7 +863,7 @@ export interface SearchResultItem {
   badge?: string;
   metadata?: Record<string, unknown>;
   navigationTarget: {
-    tab: "dashboard" | "ai" | "projects" | "tasks" | "crm" | "system" | "finance";
+    tab: "dashboard" | "ai" | "projects" | "tasks" | "crm" | "system" | "finance" | "documents" | "knowledge";
     entityId?: string;
   };
 }
@@ -876,6 +878,8 @@ export interface GlobalSearchResponse {
     milestones: SearchResultItem[];
     ai: SearchResultItem[];
     finance?: SearchResultItem[];
+    documents?: SearchResultItem[];
+    knowledgeBases?: SearchResultItem[];
   };
 }
 
@@ -1146,4 +1150,138 @@ export interface ProjectProfitabilityReport {
     profit: number;
     marginPercent: number;
   }>;
+}
+
+// ── Enterprise Documents & Knowledge Base Contracts (Phase 7) ─────────────────
+export type DocumentStatus = "uploading" | "processing" | "ready" | "failed" | "archived";
+
+export interface DocumentProcessingStatus {
+  documentId: string;
+  status: DocumentStatus;
+  processingError?: string | null;
+  chunkCount?: number;
+  extractedLength?: number;
+  updatedAt: string;
+}
+
+export interface DocumentVersionSummary {
+  id: string;
+  documentId: string;
+  versionNumber: number;
+  storageKey: string;
+  checksum: string;
+  sizeBytes: number;
+  extractedTextLength?: number;
+  createdBy?: string | null;
+  createdAt: string;
+}
+
+export interface DocumentChunkSummary {
+  id: string;
+  workspaceId: string;
+  documentId: string;
+  documentVersionId?: string | null;
+  chunkIndex: number;
+  content: string;
+  tokenCount: number;
+  characterCount: number;
+  contentHash?: string | null;
+  hasEmbedding: boolean;
+  metadata?: Record<string, unknown> | null;
+  createdAt: string;
+}
+
+export interface DocumentSummary {
+  id: string;
+  workspaceId: string;
+  name: string;
+  originalFileName: string;
+  mimeType: string;
+  extension: string;
+  sizeBytes: number;
+  storageProvider: string;
+  status: DocumentStatus;
+  description?: string | null;
+  category?: string | null;
+  folderPath?: string | null;
+  ownerId?: string | null;
+  uploadedBy?: string | null;
+  currentVersionId?: string | null;
+  isArchived: boolean;
+  versionNumber?: number;
+  chunkCount?: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DocumentDetail extends DocumentSummary {
+  storageKey: string;
+  checksum: string;
+  processingError?: string | null;
+  extractedTextSnippet?: string | null;
+  metadata?: Record<string, unknown> | null;
+  versions: DocumentVersionSummary[];
+  knowledgeBases: Array<{
+    id: string;
+    name: string;
+  }>;
+}
+
+export interface KnowledgeBaseSummary {
+  id: string;
+  workspaceId: string;
+  name: string;
+  description?: string | null;
+  status: "active" | "archived";
+  isArchived: boolean;
+  createdBy?: string | null;
+  documentCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface KnowledgeBaseDetail extends KnowledgeBaseSummary {
+  documents: DocumentSummary[];
+}
+
+export interface KnowledgeSearchResult {
+  chunkId: string;
+  documentId: string;
+  documentName: string;
+  versionNumber: number;
+  chunkIndex: number;
+  content: string;
+  snippet: string;
+  score: number;
+  searchMode: "keyword" | "semantic" | "hybrid";
+  page?: number;
+  section?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface KnowledgeSearchResponse {
+  query: string;
+  totalResults: number;
+  searchMode: "keyword" | "semantic" | "hybrid";
+  embeddingAvailable: boolean;
+  results: KnowledgeSearchResult[];
+}
+
+export interface RAGContextItem {
+  documentId: string;
+  documentName: string;
+  chunkId: string;
+  content: string;
+  score: number;
+  page?: number;
+  section?: string;
+  citation: string;
+}
+
+export interface RAGContext {
+  query: string;
+  workspaceId: string;
+  items: RAGContextItem[];
+  formattedContext: string;
+  retrievedAt: string;
 }

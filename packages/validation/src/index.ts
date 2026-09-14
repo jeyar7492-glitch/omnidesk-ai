@@ -585,3 +585,93 @@ export const createExpenseSchema = CreateExpenseSchema;
 export const updateExpenseSchema = UpdateExpenseSchema;
 export const expenseQuerySchema = ExpenseQuerySchema;
 export const financeReportQuerySchema = FinanceReportQuerySchema;
+
+// ── Enterprise Documents & Knowledge Base Validation (Phase 7) ─────────────────
+export const DocumentStatusEnum = z.enum(["uploading", "processing", "ready", "failed", "archived"]);
+
+export const CreateDocumentSchema = z.object({
+  name: z.string().min(1, "Document name is required").max(255),
+  description: z.string().max(1000).optional().nullable(),
+  category: z.string().max(100).optional().default("General"),
+  folderPath: z.string().max(500).optional().default("/"),
+});
+
+export const UpdateDocumentSchema = z.object({
+  name: z.string().min(1).max(255).optional(),
+  description: z.string().max(1000).optional().nullable(),
+  category: z.string().max(100).optional(),
+  folderPath: z.string().max(500).optional(),
+  isArchived: z.boolean().optional(),
+});
+
+export const DocumentQuerySchema = z.object({
+  status: DocumentStatusEnum.optional(),
+  category: z.string().optional(),
+  mimeType: z.string().optional(),
+  extension: z.string().optional(),
+  search: z.string().optional(),
+  isArchived: z.preprocess((val) => {
+    if (typeof val === "string") return val === "true";
+    return val;
+  }, z.boolean().optional()),
+  knowledgeBaseId: z.string().optional(),
+  page: z.coerce.number().int().positive().optional().default(1),
+  limit: z.coerce.number().int().positive().max(100).optional().default(20),
+  sortBy: z.string().optional().default("createdAt"),
+  sortOrder: z.enum(["asc", "desc"]).optional().default("desc"),
+});
+
+export const UploadDocumentMetadataSchema = z.object({
+  name: z.string().min(1).max(255).optional(),
+  description: z.string().max(1000).optional(),
+  category: z.string().max(100).optional(),
+  folderPath: z.string().max(500).optional(),
+  knowledgeBaseId: z.string().optional(),
+});
+
+export const CreateKnowledgeBaseSchema = z.object({
+  name: z.string().min(1, "Knowledge base name is required").max(255),
+  description: z.string().max(1000).optional().nullable(),
+});
+
+export const UpdateKnowledgeBaseSchema = z.object({
+  name: z.string().min(1).max(255).optional(),
+  description: z.string().max(1000).optional().nullable(),
+  isArchived: z.boolean().optional(),
+});
+
+export const KnowledgeBaseQuerySchema = z.object({
+  search: z.string().optional(),
+  isArchived: z.preprocess((val) => {
+    if (typeof val === "string") return val === "true";
+    return val;
+  }, z.boolean().optional()),
+  page: z.coerce.number().int().positive().optional().default(1),
+  limit: z.coerce.number().int().positive().max(100).optional().default(20),
+  sortBy: z.string().optional().default("createdAt"),
+  sortOrder: z.enum(["asc", "desc"]).optional().default("desc"),
+});
+
+export const AddDocumentToKBSchema = z.object({
+  documentId: z.string().min(1, "Document ID is required"),
+});
+
+export const KnowledgeSearchQuerySchema = z.object({
+  query: z.string().min(1, "Search query is required").max(1000),
+  knowledgeBaseId: z.string().optional(),
+  documentId: z.string().optional(),
+  mode: z.enum(["keyword", "semantic", "hybrid"]).optional().default("hybrid"),
+  topK: z.coerce.number().int().positive().max(50).optional().default(10),
+  threshold: z.number().min(0).max(1).optional(),
+});
+
+// CamelCase export aliases for Phase 7
+export const createDocumentSchema = CreateDocumentSchema;
+export const updateDocumentSchema = UpdateDocumentSchema;
+export const documentQuerySchema = DocumentQuerySchema;
+export const uploadDocumentMetadataSchema = UploadDocumentMetadataSchema;
+export const createKnowledgeBaseSchema = CreateKnowledgeBaseSchema;
+export const updateKnowledgeBaseSchema = UpdateKnowledgeBaseSchema;
+export const knowledgeBaseQuerySchema = KnowledgeBaseQuerySchema;
+export const addDocumentToKBSchema = AddDocumentToKBSchema;
+export const knowledgeSearchQuerySchema = KnowledgeSearchQuerySchema;

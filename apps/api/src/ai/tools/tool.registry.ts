@@ -77,6 +77,11 @@ import { FinancePaymentListTool } from "./finance/finance_payment_list.tool";
 import { FinanceExpenseListTool } from "./finance/finance_expense_list.tool";
 import { FinanceReportTool } from "./finance/finance_report.tool";
 
+// Knowledge / RAG AI Tools (Phase 7)
+import { KnowledgeSearchTool } from "./knowledge/knowledge_search.tool";
+import { KnowledgeGetDocumentTool } from "./knowledge/knowledge_get_document.tool";
+import { KnowledgeGetDocumentContextTool } from "./knowledge/knowledge_get_document_context.tool";
+
 export class ToolRegistry {
   private static instance: ToolRegistry;
   private tools: Map<string, IAITool> = new Map();
@@ -185,6 +190,19 @@ export class ToolRegistry {
     this.tools.set("finance_payment_list", finPaymentList);
     this.tools.set("finance_expense_list", finExpenseList);
     this.tools.set("finance_report", finReport);
+
+    // Knowledge & RAG Production Tools (Phase 7)
+    const knowSearch = new KnowledgeSearchTool();
+    const knowGetDoc = new KnowledgeGetDocumentTool();
+    const knowGetContext = new KnowledgeGetDocumentContextTool();
+
+    this.registerTool(knowSearch);
+    this.registerTool(knowGetDoc);
+    this.registerTool(knowGetContext);
+
+    this.tools.set("knowledge_search", knowSearch);
+    this.tools.set("knowledge_get_document", knowGetDoc);
+    this.tools.set("knowledge_get_document_context", knowGetContext);
   }
 
   public registerTool(tool: IAITool): void {
