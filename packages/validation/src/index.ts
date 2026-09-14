@@ -267,9 +267,10 @@ export const MilestoneStatusSchema = z.string();
 
 export const CreateProjectSchema = z.object({
   name: z.string().min(1, "Project name is required").max(200),
+  key: z.string().max(20).optional(),
   description: z.string().max(2000).optional(),
   status: z.string().optional().default("PLANNING"),
-  priority: z.string().optional().default("MEDIUM"),
+  priority: z.enum(["LOW", "MEDIUM", "HIGH", "URGENT"]).optional().default("MEDIUM"),
   targetDate: z.string().optional(),
   startDate: z.string().optional(),
   deadline: z.string().optional(),
@@ -278,9 +279,28 @@ export const CreateProjectSchema = z.object({
   managerId: z.string().optional(),
   customerId: z.string().optional(),
   health: z.string().optional(),
+  color: z.string().optional(),
 });
 
 export const UpdateProjectSchema = CreateProjectSchema.partial();
+
+export const ProjectQuerySchema = z.object({
+  q: z.string().optional(),
+  status: z.string().optional(),
+  priority: z.string().optional(),
+  managerId: z.string().optional(),
+  customerId: z.string().optional(),
+  isArchived: z.preprocess((val) => val === "true" || val === true, z.boolean()).optional(),
+  page: z.preprocess((val) => (val ? Number(val) : 1), z.number().int().min(1).default(1)),
+  limit: z.preprocess((val) => (val ? Number(val) : 20), z.number().int().min(1).max(100).default(20)),
+  sortBy: z.string().optional(),
+  sortOrder: z.enum(["asc", "desc"]).optional().default("desc"),
+});
+
+export const ProjectMemberSchema = z.object({
+  userId: z.string().min(1, "User ID is required"),
+  role: z.enum(["OWNER", "LEAD", "MANAGER", "MEMBER", "CONTRIBUTOR", "VIEWER"]).default("MEMBER"),
+});
 
 export const ArchiveProjectSchema = z.object({
   reason: z.string().max(500).optional(),
@@ -291,7 +311,7 @@ export const CreateMilestoneSchema = z.object({
   title: z.string().min(1, "Milestone title is required").max(200),
   description: z.string().max(1000).optional(),
   dueDate: z.string().optional(),
-  status: z.string().optional().default("UPCOMING"),
+  status: z.string().optional().default("pending"),
   assignedUserId: z.string().optional(),
 });
 
@@ -308,15 +328,18 @@ export const TaskStatusSchema = z.string();
 export const CreateTaskSchema = z.object({
   title: z.string().min(1, "Task title is required").max(200),
   description: z.string().max(4000).optional(),
-  status: z.string().optional().default("TODO"),
-  priority: z.string().optional().default("MEDIUM"),
+  status: z.string().optional().default("todo"),
+  priority: z.enum(["LOW", "MEDIUM", "HIGH", "URGENT"]).optional().default("MEDIUM"),
   projectId: z.string().optional(),
   milestoneId: z.string().optional(),
+  parentTaskId: z.string().optional(),
   assigneeId: z.string().optional(),
+  reporterId: z.string().optional(),
   startDate: z.string().optional(),
   dueDate: z.string().optional(),
   estimatedHours: z.number().nonnegative().optional(),
   actualHours: z.number().nonnegative().optional(),
+  position: z.number().int().optional(),
   tags: z.array(z.string()).optional().default([]),
   labels: z.array(z.string()).optional(),
   dependencies: z.array(z.string()).optional(),
@@ -324,34 +347,62 @@ export const CreateTaskSchema = z.object({
 
 export const UpdateTaskSchema = CreateTaskSchema.partial();
 
+export const TaskQuerySchema = z.object({
+  q: z.string().optional(),
+  projectId: z.string().optional(),
+  milestoneId: z.string().optional(),
+  assigneeId: z.string().optional(),
+  status: z.string().optional(),
+  priority: z.string().optional(),
+  isOverdue: z.preprocess((val) => val === "true" || val === true, z.boolean()).optional(),
+  isBlocked: z.preprocess((val) => val === "true" || val === true, z.boolean()).optional(),
+  isArchived: z.preprocess((val) => val === "true" || val === true, z.boolean()).optional(),
+  page: z.preprocess((val) => (val ? Number(val) : 1), z.number().int().min(1).default(1)),
+  limit: z.preprocess((val) => (val ? Number(val) : 20), z.number().int().min(1).max(100).default(20)),
+  sortBy: z.string().optional(),
+  sortOrder: z.enum(["asc", "desc"]).optional().default("desc"),
+});
+
 export const MoveTaskSchema = z.object({
   targetStatus: z.string().min(1, "Target status is required"),
+  position: z.number().int().optional(),
   reason: z.string().max(500).optional(),
 });
 
+export const ReorderTaskSchema = z.object({
+  targetStatus: z.string().optional(),
+  position: z.number().int().min(0, "Position must be non-negative"),
+});
+
 export const AssignTaskSchema = z.object({
-  assigneeId: z.string().optional(),
+  assigneeId: z.string().optional().nullable(),
   assigneeNameOrEmail: z.string().optional(),
 });
 
 export const CreateTaskChecklistSchema = z.object({
-  items: z.array(z.string()).default([]),
+  items: z.array(z.string()).optional(),
   title: z.string().optional(),
   isCompleted: z.boolean().optional().default(false),
+  position: z.number().int().optional(),
 });
 
 export const UpdateTaskChecklistSchema = z.object({
-  isCompleted: z.boolean().default(false),
+  isCompleted: z.boolean().optional(),
   title: z.string().optional(),
+  position: z.number().int().optional(),
 });
 
 export const CreateTaskDependencySchema = z.object({
   dependsOnTaskId: z.string().min(1, "Dependency task ID is required"),
-  blockingTaskId: z.string().optional(),
+  type: z.enum(["BLOCKS", "RELATION"]).optional().default("BLOCKS"),
 });
 
 export const CreateTaskCommentSchema = z.object({
-  content: z.string().min(1, "Comment content is required").max(2000),
+  content: z.string().min(1, "Comment content is required").max(4000),
+});
+
+export const UpdateTaskCommentSchema = z.object({
+  content: z.string().min(1, "Comment content is required").max(4000),
 });
 
 // ── Authentication Validation Schemas ───────────────────────────────────────

@@ -63,7 +63,7 @@ export class ProjectGetTool implements IAITool<z.infer<typeof ProjectGetInputSch
         status: t.status,
         priority: t.priority,
         assignee: t.assignee ? `${t.assignee.firstName} ${t.assignee.lastName}` : "Unassigned",
-        dueDate: t.dueDate?.toISOString() || null,
+        dueDate: t.dueDate ? String(t.dueDate) : null,
       })),
     };
   }

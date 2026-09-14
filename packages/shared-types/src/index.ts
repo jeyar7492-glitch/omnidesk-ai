@@ -253,25 +253,63 @@ export interface PaginatedResponse<T> {
 }
 
 export type ProjectStatus = "PLANNING" | "ACTIVE" | "ON_HOLD" | "COMPLETED" | "CANCELLED";
+export type ProjectPriority = PriorityLevel;
+export type ProjectMemberRole = "LEAD" | "MEMBER" | "VIEWER";
 
-export type TaskWorkflowStage = "backlog" | "todo" | "in_progress" | "review" | "testing" | "done";
+export type TaskWorkflowStage = "backlog" | "todo" | "in_progress" | "review" | "blocked" | "done";
+
+export interface ProjectMemberSummary {
+  id: string;
+  workspaceId: string;
+  projectId: string;
+  userId: string;
+  role: "LEAD" | "MEMBER" | "VIEWER" | string;
+  userName?: string;
+  userEmail?: string;
+  userAvatar?: string | null;
+  user?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+  };
+  joinedAt: string;
+}
 
 export interface ProjectSummary {
   id: string;
   name: string;
+  key?: string | null;
   description?: string;
   status: ProjectStatus;
+  priority?: PriorityLevel;
   health: string;
+  color?: string | null;
   budget: number;
   spent: number;
   startDate?: string;
   deadline?: string;
+  targetDate?: string;
+  completedAt?: string | null;
   managerName?: string;
   managerId?: string;
+  manager?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email?: string;
+  } | null;
+  ownerId?: string | null;
   customerName?: string;
   customerId?: string;
+  customer?: {
+    id: string;
+    companyName?: string;
+    name?: string;
+  } | null;
   isArchived: boolean;
   progressPercentage: number;
+  progress?: number;
   totalTasks: number;
   completedTasks: number;
   createdAt: string;
@@ -290,6 +328,20 @@ export interface TaskCommentSummary {
   userName: string;
   content: string;
   createdAt: string;
+  updatedAt?: string;
+}
+
+export interface TaskDependencySummary {
+  id: string;
+  workspaceId: string;
+  taskId: string;
+  dependsOnTaskId: string;
+  type: "BLOCKS" | "RELATION" | string;
+  taskTitle?: string;
+  dependsOnTitle?: string;
+  dependsOnStatus?: string;
+  dependsOnAssignee?: string | null;
+  createdAt?: string;
 }
 
 export interface TaskSummary {
@@ -307,6 +359,7 @@ export interface TaskSummary {
   projectId?: string;
   milestoneTitle?: string;
   milestoneId?: string;
+  parentTaskId?: string | null;
   startDate?: string;
   dueDate?: string;
   estimatedHours?: number;
@@ -319,8 +372,49 @@ export interface TaskSummary {
   checklists: TaskChecklistSummary[];
   checklistCount: number;
   completedChecklistCount: number;
+  commentsCount?: number;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface TaskDetail extends TaskSummary {
+  comments: TaskCommentSummary[];
+  project?: {
+    id: string;
+    name: string;
+    key?: string | null;
+    status?: string;
+  } | null;
+  assignee?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email?: string;
+  } | null;
+  resolvedDependencies?: Array<{
+    id: string;
+    title: string;
+    status: string;
+    priority: string;
+    assigneeName?: string;
+    isCompleted: boolean;
+  }>;
+  dependencyDetails?: Array<{
+    id: string;
+    taskId: string;
+    dependsOnTaskId: string;
+    type: string;
+    dependsOnTaskTitle: string;
+    dependsOnTaskStatus: string;
+    dependsOnTaskAssignee?: string | null;
+  }>;
+  activityHistory?: Array<{
+    id: string;
+    action: string;
+    details?: any;
+    createdAt: string;
+    userName?: string | null;
+  }>;
 }
 
 export interface MilestoneSummary {
@@ -336,6 +430,51 @@ export interface MilestoneSummary {
   completedTasks: number;
   completedAt?: string;
   createdAt: string;
+}
+
+export interface ProjectDashboardStats {
+  totalTasks: number;
+  completedTasks: number;
+  inProgressTasks: number;
+  todoTasks: number;
+  reviewTasks: number;
+  blockedTasks: number;
+  overdueTasks: number;
+  completionPercentage: number;
+  upcomingDeadlines: Array<{
+    id: string;
+    title: string;
+    dueDate?: string | null;
+    priority: PriorityLevel;
+    status: string;
+    assigneeName?: string | null;
+  }>;
+  milestoneProgress: Array<{
+    id: string;
+    title: string;
+    dueDate?: string | null;
+    progress: number;
+    status: string;
+    totalTasks: number;
+    completedTasks: number;
+  }>;
+  memberWorkload: Array<{
+    userId: string;
+    name: string;
+    email: string;
+    taskCount: number;
+    completedCount: number;
+    overdueCount: number;
+  }>;
+  statusDistribution: Record<string, number>;
+  priorityDistribution: Record<string, number>;
+}
+
+export interface ProjectDetail extends ProjectSummary {
+  members: ProjectMemberSummary[];
+  milestones: MilestoneSummary[];
+  tasks: TaskSummary[];
+  dashboardStats?: ProjectDashboardStats;
 }
 
 export interface ProjectHealthMetrics {

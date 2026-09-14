@@ -77,15 +77,16 @@ model User {
   lastLoginAt      DateTime?
   memberships      WorkspaceMember[]
   createdTasks     Task[]            @relation("TaskReporter")
-  assignedTasks    Task[]            @relation("TaskAssignee")
-  managedProjects  Project[]         @relation("ProjectManager")
-  taskComments     TaskComment[]
-  chatMessages     ChatMessage[]
-  auditEvents      AuditEvent[]
-  aiConversations  AIConversation[]
-  refreshTokens    RefreshToken[]
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
+  assignedTasks      Task[]            @relation("TaskAssignee")
+  managedProjects    Project[]         @relation("ProjectManager")
+  projectMemberships ProjectMember[]   @relation("ProjectMemberUser")
+  taskComments       TaskComment[]
+  chatMessages       ChatMessage[]
+  auditEvents        AuditEvent[]
+  aiConversations    AIConversation[]
+  refreshTokens      RefreshToken[]
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
 }
 
 model RefreshToken {
@@ -298,33 +299,56 @@ model CRMActivity {
 }
 
 model Project {
-  id          String        @id @default(auto()) @map("_id") @db.ObjectId
-  workspaceId String        @db.ObjectId
-  workspace   Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  customerId  String?       @db.ObjectId
-  customer    Customer?     @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  id          String          @id @default(auto()) @map("_id") @db.ObjectId
+  workspaceId String          @db.ObjectId
+  workspace   Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  customerId  String?         @db.ObjectId
+  customer    Customer?       @relation(fields: [customerId], references: [id], onDelete: SetNull)
   name        String
+  key         String?
   description String?
-  status      ProjectStatus @default(PLANNING)
-  budget      Float         @default(0.0)
-  spent       Float         @default(0.0)
+  status      ProjectStatus   @default(PLANNING)
+  priority    PriorityLevel   @default(MEDIUM)
+  budget      Float           @default(0.0)
+  spent       Float           @default(0.0)
   startDate   DateTime?
   deadline    DateTime?
-  managerId   String?       @db.ObjectId
-  manager     User?         @relation("ProjectManager", fields: [managerId], references: [id], onDelete: SetNull)
+  completedAt DateTime?
+  color       String?
+  ownerId     String?         @db.ObjectId
+  managerId   String?         @db.ObjectId
+  manager     User?           @relation("ProjectManager", fields: [managerId], references: [id], onDelete: SetNull)
+  members     ProjectMember[]
   milestones  Milestone[]
   boards      Board[]
   tasks       Task[]
   invoices    Invoice[]
   meetings    Meeting[]
-  health      String        @default("healthy")
-  isArchived  Boolean       @default(false)
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  health      String          @default("healthy")
+  isArchived  Boolean         @default(false)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
 
   @@index([workspaceId, status])
   @@index([workspaceId, isArchived])
   @@index([workspaceId, managerId])
+  @@index([workspaceId, key])
+  @@index([workspaceId, priority])
+}
+
+model ProjectMember {
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  workspaceId String    @db.ObjectId
+  projectId   String    @db.ObjectId
+  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  userId      String    @db.ObjectId
+  user        User      @relation("ProjectMemberUser", fields: [userId], references: [id], onDelete: Cascade)
+  role        String    @default("MEMBER") // "LEAD" | "MEMBER" | "VIEWER"
+  joinedAt    DateTime  @default(now())
+
+  @@unique([projectId, userId])
+  @@index([workspaceId, projectId])
+  @@index([workspaceId, userId])
 }
 
 model Milestone {
@@ -380,47 +404,71 @@ model BoardColumn {
 }
 
 model Task {
-  id             String          @id @default(auto()) @map("_id") @db.ObjectId
-  workspaceId    String          @db.ObjectId
-  workspace      Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  projectId      String?         @db.ObjectId
-  project        Project?        @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  milestoneId    String?         @db.ObjectId
-  milestone      Milestone?      @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
-  boardId        String?         @db.ObjectId
-  board          Board?          @relation(fields: [boardId], references: [id], onDelete: SetNull)
-  columnId       String?         @db.ObjectId
-  column         BoardColumn?    @relation(fields: [columnId], references: [id], onDelete: SetNull)
-  title          String
-  description    String?
-  status         String          @default("todo")
-  priority       PriorityLevel   @default(MEDIUM)
-  position       Int             @default(0)
-  assigneeId     String?         @db.ObjectId
-  assignee       User?           @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
-  reporterId     String?         @db.ObjectId
-  reporter       User?           @relation("TaskReporter", fields: [reporterId], references: [id], onDelete: SetNull)
-  startDate      DateTime?
-  dueDate        DateTime?
-  estimatedHours Float?
-  actualHours    Float?
-  labels         String[]        @default([])
-  dependencies   String[]        @default([])
-  isBlocked      Boolean         @default(false)
-  blockedReason  String?
-  isArchived     Boolean         @default(false)
-  completedAt    DateTime?
-  checklists     TaskChecklist[]
-  comments       TaskComment[]
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
+  id               String          @id @default(auto()) @map("_id") @db.ObjectId
+  workspaceId      String          @db.ObjectId
+  workspace        Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  projectId        String?         @db.ObjectId
+  project          Project?        @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  milestoneId      String?         @db.ObjectId
+  milestone        Milestone?      @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
+  boardId          String?         @db.ObjectId
+  board            Board?          @relation(fields: [boardId], references: [id], onDelete: SetNull)
+  columnId         String?         @db.ObjectId
+  column           BoardColumn?    @relation(fields: [columnId], references: [id], onDelete: SetNull)
+  parentTaskId     String?         @db.ObjectId
+  title            String
+  description      String?
+  status           String          @default("todo")
+  priority         PriorityLevel   @default(MEDIUM)
+  position         Int             @default(0)
+  assigneeId       String?         @db.ObjectId
+  assignee         User?           @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  reporterId       String?         @db.ObjectId
+  reporter         User?           @relation("TaskReporter", fields: [reporterId], references: [id], onDelete: SetNull)
+  startDate        DateTime?
+  dueDate          DateTime?
+  estimatedHours   Float?
+  actualHours      Float?
+  labels           String[]        @default([])
+  dependencies     String[]        @default([])
+  taskDependencies TaskDependency[] @relation("TaskSource")
+  dependents       TaskDependency[] @relation("TaskTarget")
+  isBlocked        Boolean         @default(false)
+  blockedReason    String?
+  isArchived       Boolean         @default(false)
+  completedAt      DateTime?
+  checklists       TaskChecklist[]
+  comments         TaskComment[]
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
 
   @@index([workspaceId, status])
   @@index([columnId, position])
+  @@index([workspaceId, projectId])
+  @@index([workspaceId, assigneeId])
+  @@index([workspaceId, dueDate])
+  @@index([workspaceId, isArchived])
+  @@index([workspaceId, priority])
+}
+
+model TaskDependency {
+  id              String    @id @default(auto()) @map("_id") @db.ObjectId
+  workspaceId     String    @db.ObjectId
+  taskId          String    @db.ObjectId
+  task            Task      @relation("TaskSource", fields: [taskId], references: [id], onDelete: Cascade)
+  dependsOnTaskId String    @db.ObjectId
+  dependsOnTask   Task      @relation("TaskTarget", fields: [dependsOnTaskId], references: [id], onDelete: Cascade)
+  type            String    @default("BLOCKS") // "BLOCKS" | "RELATION"
+  createdAt       DateTime  @default(now())
+
+  @@unique([taskId, dependsOnTaskId])
+  @@index([workspaceId, taskId])
+  @@index([workspaceId, dependsOnTaskId])
 }
 
 model TaskChecklist {
   id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  workspaceId String?  @db.ObjectId
   taskId      String   @db.ObjectId
   task        Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
   title       String
@@ -428,17 +476,22 @@ model TaskChecklist {
   position    Int      @default(0)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  @@index([taskId, position])
 }
 
 model TaskComment {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  taskId    String   @db.ObjectId
-  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  userId    String   @db.ObjectId
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  content   String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  workspaceId String?  @db.ObjectId
+  taskId      String   @db.ObjectId
+  task        Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  userId      String?  @db.ObjectId
+  user        User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  content     String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([taskId, createdAt])
 }
 
 model Invoice {

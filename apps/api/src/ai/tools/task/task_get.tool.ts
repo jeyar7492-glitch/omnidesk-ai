@@ -59,7 +59,7 @@ export class TaskGetTool implements IAITool<z.infer<typeof TaskGetInputSchema>, 
       })),
       comments: task.comments.map((cm) => ({
         id: cm.id,
-        author: `${cm.user.firstName} ${cm.user.lastName}`,
+        author: cm.user ? `${cm.user.firstName || ""} ${cm.user.lastName || ""}`.trim() || "Team Member" : "Team Member",
         content: cm.content,
         createdAt: cm.createdAt.toISOString(),
       })),

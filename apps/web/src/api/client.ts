@@ -3,7 +3,11 @@ import {
   AIExecutionSummary,
   AIApprovalRequestSummary,
   ProjectSummary,
+  ProjectDetail,
+  ProjectDashboardStats,
+  ProjectMemberSummary,
   TaskSummary,
+  TaskDetail,
   MilestoneSummary,
   CRMLeadSummary,
   CRMDealSummary,
@@ -378,9 +382,73 @@ export class ApiClient {
 
   // ── Project Endpoints ───────────────────────────────────────────────────
   public async getProjects(filter?: any): Promise<ProjectSummary[]> {
-    const query = filter ? `?${new URLSearchParams(filter).toString()}` : "";
+    const query = this.toQueryString(filter);
     const res = await this.request<any>(`/projects${query}`);
     return Array.isArray(res) ? res : res.items || [];
+  }
+
+  public async getProjectsPaginated(filter?: any): Promise<PaginatedResponse<ProjectSummary>> {
+    const query = this.toQueryString(filter);
+    const res = await this.requestWithMeta<ProjectSummary[]>(`/projects${query}`);
+    return {
+      items: Array.isArray(res.data) ? res.data : [],
+      total: res.meta?.total ?? (Array.isArray(res.data) ? res.data.length : 0),
+      page: res.meta?.page ?? 1,
+      limit: res.meta?.limit ?? 20,
+      totalPages: res.meta?.totalPages ?? 1,
+    };
+  }
+
+  public async getProject(id: string): Promise<ProjectDetail> {
+    return this.request<ProjectDetail>(`/projects/${id}`);
+  }
+
+  public async createProject(input: {
+    name: string;
+    description?: string;
+    key?: string;
+    priority?: string;
+    customerId?: string;
+    managerId?: string;
+    startDate?: string;
+    targetDate?: string;
+    budget?: number;
+    color?: string;
+  }): Promise<ProjectDetail> {
+    return this.request<ProjectDetail>("/projects", {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+  }
+
+  public async updateProject(id: string, input: any): Promise<ProjectDetail> {
+    return this.request<ProjectDetail>(`/projects/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(input),
+    });
+  }
+
+  public async deleteProject(id: string): Promise<{ success: boolean; message: string }> {
+    return this.request<{ success: boolean; message: string }>(`/projects/${id}`, {
+      method: "DELETE",
+    });
+  }
+
+  public async archiveProject(id: string, reason?: string): Promise<any> {
+    return this.request<any>(`/projects/${id}/archive`, {
+      method: "POST",
+      body: JSON.stringify({ reason }),
+    });
+  }
+
+  public async restoreProject(id: string): Promise<any> {
+    return this.request<any>(`/projects/${id}/restore`, {
+      method: "POST",
+    });
+  }
+
+  public async getProjectDashboard(id: string): Promise<ProjectDashboardStats> {
+    return this.request<ProjectDashboardStats>(`/projects/${id}/dashboard`);
   }
 
   public async getProjectHealth(projectId: string): Promise<any> {
@@ -391,43 +459,222 @@ export class ApiClient {
     return this.request<any>(`/projects/${projectId}/progress`);
   }
 
+  public async getProjectMembers(id: string): Promise<ProjectMemberSummary[]> {
+    const res = await this.request<any>(`/projects/${id}/members`);
+    return Array.isArray(res) ? res : [];
+  }
+
+  public async addProjectMember(id: string, input: { userId?: string; userEmail?: string; role?: string }): Promise<any> {
+    return this.request<any>(`/projects/${id}/members`, {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+  }
+
+  public async removeProjectMember(id: string, userId: string): Promise<any> {
+    return this.request<any>(`/projects/${id}/members/${userId}`, {
+      method: "DELETE",
+    });
+  }
+
   public async getMilestones(projectIdOrFilter?: any): Promise<MilestoneSummary[]> {
     let query = "";
     if (typeof projectIdOrFilter === "string") {
       query = `?projectId=${encodeURIComponent(projectIdOrFilter)}`;
     } else if (projectIdOrFilter && typeof projectIdOrFilter === "object") {
-      query = `?${new URLSearchParams(projectIdOrFilter).toString()}`;
+      query = this.toQueryString(projectIdOrFilter);
     }
     const res = await this.request<any>(`/milestones${query}`);
     return Array.isArray(res) ? res : res.items || [];
   }
 
+  public async getProjectMilestones(id: string): Promise<MilestoneSummary[]> {
+    const res = await this.request<any>(`/projects/${id}/milestones`);
+    return Array.isArray(res) ? res : [];
+  }
+
+  public async createProjectMilestone(id: string, input: {
+    title: string;
+    description?: string;
+    dueDate?: string;
+    status?: string;
+  }): Promise<any> {
+    return this.request<any>(`/projects/${id}/milestones`, {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+  }
+
   // ── Task Endpoints ──────────────────────────────────────────────────────
   public async getTasks(filter?: any): Promise<TaskSummary[]> {
-    const cleanFilter: Record<string, string> = {};
-    if (filter) {
-      for (const [k, v] of Object.entries(filter)) {
-        if (v !== undefined && v !== null) {
-          cleanFilter[k] = String(v);
-        }
-      }
-    }
-    const query = Object.keys(cleanFilter).length > 0 ? `?${new URLSearchParams(cleanFilter).toString()}` : "";
+    const query = this.toQueryString(filter);
     const res = await this.request<any>(`/tasks${query}`);
     return Array.isArray(res) ? res : res.items || [];
   }
 
-  public async getBlockedTasks(): Promise<TaskSummary[]> {
-    const res = await this.request<any>("/tasks/blocked");
-    return Array.isArray(res) ? res : res.items || [];
+  public async getTasksPaginated(filter?: any): Promise<PaginatedResponse<TaskSummary>> {
+    const query = this.toQueryString(filter);
+    const res = await this.requestWithMeta<TaskSummary[]>(`/tasks${query}`);
+    return {
+      items: Array.isArray(res.data) ? res.data : [],
+      total: res.meta?.total ?? (Array.isArray(res.data) ? res.data.length : 0),
+      page: res.meta?.page ?? 1,
+      limit: res.meta?.limit ?? 20,
+      totalPages: res.meta?.totalPages ?? 1,
+    };
   }
 
-  public async getWorkload(): Promise<any> {
-    return this.request<any>("/tasks/workload");
+  public async getTask(id: string): Promise<TaskDetail> {
+    return this.request<TaskDetail>(`/tasks/${id}`);
   }
 
-  public async getTeamWorkload(): Promise<any> {
-    return this.getWorkload();
+  public async createTask(input: {
+    title: string;
+    description?: string;
+    projectId?: string;
+    milestoneId?: string;
+    parentTaskId?: string;
+    priority?: string;
+    status?: string;
+    position?: number;
+    assigneeId?: string;
+    startDate?: string;
+    dueDate?: string;
+    estimatedHours?: number;
+    labels?: string[];
+    dependencies?: string[];
+  }): Promise<TaskDetail> {
+    return this.request<TaskDetail>("/tasks", {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+  }
+
+  public async updateTask(id: string, input: any): Promise<TaskDetail> {
+    return this.request<TaskDetail>(`/tasks/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(input),
+    });
+  }
+
+  public async deleteTask(id: string): Promise<{ success: boolean; message: string }> {
+    return this.request<{ success: boolean; message: string }>(`/tasks/${id}`, {
+      method: "DELETE",
+    });
+  }
+
+  public async moveTask(id: string, targetStatus: string, reason?: string): Promise<TaskDetail> {
+    return this.request<TaskDetail>(`/tasks/${id}/move`, {
+      method: "POST",
+      body: JSON.stringify({ targetStatus, reason }),
+    });
+  }
+
+  public async reorderTask(id: string, position: number, targetStatus?: string): Promise<TaskDetail> {
+    return this.request<TaskDetail>(`/tasks/${id}/reorder`, {
+      method: "POST",
+      body: JSON.stringify({ position, targetStatus }),
+    });
+  }
+
+  public async assignTask(id: string, assigneeIdOrName?: string): Promise<TaskDetail> {
+    return this.request<TaskDetail>(`/tasks/${id}/assign`, {
+      method: "POST",
+      body: JSON.stringify({
+        assigneeId: assigneeIdOrName && /^[0-9a-fA-F]{24}$/.test(assigneeIdOrName) ? assigneeIdOrName : undefined,
+        assigneeNameOrEmail: assigneeIdOrName && !/^[0-9a-fA-F]{24}$/.test(assigneeIdOrName) ? assigneeIdOrName : undefined,
+      }),
+    });
+  }
+
+  public async archiveTask(id: string): Promise<any> {
+    return this.request<any>(`/tasks/${id}/archive`, {
+      method: "POST",
+    });
+  }
+
+  public async restoreTask(id: string): Promise<any> {
+    return this.request<any>(`/tasks/${id}/restore`, {
+      method: "POST",
+    });
+  }
+
+  public async addChecklist(taskId: string, input: { items?: string[]; title?: string } | string[]): Promise<any> {
+    const payload = Array.isArray(input) ? { items: input } : input;
+    return this.request<any>(`/tasks/${taskId}/checklists`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  }
+
+  public async updateChecklistItem(
+    taskId: string,
+    checklistId: string,
+    input: { isCompleted?: boolean; title?: string; position?: number }
+  ): Promise<any> {
+    return this.request<any>(`/tasks/${taskId}/checklists/${checklistId}`, {
+      method: "PATCH",
+      body: JSON.stringify(input),
+    });
+  }
+
+  public async deleteChecklistItem(taskId: string, checklistId: string): Promise<any> {
+    return this.request<any>(`/tasks/${taskId}/checklists/${checklistId}`, {
+      method: "DELETE",
+    });
+  }
+
+  public async addDependency(taskId: string, dependsOnTaskId: string): Promise<any> {
+    return this.request<any>(`/tasks/${taskId}/dependencies`, {
+      method: "POST",
+      body: JSON.stringify({ dependsOnTaskId }),
+    });
+  }
+
+  public async removeDependency(taskId: string, dependencyId: string): Promise<any> {
+    return this.request<any>(`/tasks/${taskId}/dependencies/${dependencyId}`, {
+      method: "DELETE",
+    });
+  }
+
+  public async getComments(taskId: string): Promise<any[]> {
+    const res = await this.request<any>(`/tasks/${taskId}/comments`);
+    return Array.isArray(res) ? res : [];
+  }
+
+  public async addComment(taskId: string, content: string): Promise<any> {
+    return this.request<any>(`/tasks/${taskId}/comments`, {
+      method: "POST",
+      body: JSON.stringify({ content }),
+    });
+  }
+
+  public async updateComment(taskId: string, commentId: string, content: string): Promise<any> {
+    return this.request<any>(`/tasks/${taskId}/comments/${commentId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ content }),
+    });
+  }
+
+  public async deleteComment(taskId: string, commentId: string): Promise<any> {
+    return this.request<any>(`/tasks/${taskId}/comments/${commentId}`, {
+      method: "DELETE",
+    });
+  }
+
+  public async getBlockedTasks(projectId?: string): Promise<any> {
+    const query = projectId ? `?projectId=${encodeURIComponent(projectId)}` : "";
+    const res = await this.request<any>(`/tasks/blocked${query}`);
+    return Array.isArray(res) ? res : res.blockedTasks || [];
+  }
+
+  public async getWorkload(projectId?: string): Promise<any> {
+    const query = projectId ? `?projectId=${encodeURIComponent(projectId)}` : "";
+    return this.request<any>(`/tasks/workload${query}`);
+  }
+
+  public async getTeamWorkload(projectId?: string): Promise<any> {
+    return this.getWorkload(projectId);
   }
 
   private toQueryString(filter?: Record<string, any>): string {
