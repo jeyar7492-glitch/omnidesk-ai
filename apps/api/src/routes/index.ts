@@ -18,6 +18,7 @@ import {
   notificationRouter,
   notificationPreferenceRouter,
 } from "../notifications/routes/notification.router";
+import { communicationRouter } from "../communication/routes/communication.router";
 
 export const v1Router = Router();
 
@@ -37,3 +38,5 @@ v1Router.use("/knowledge-bases", knowledgeBaseRouter);
 v1Router.use("/knowledge", knowledgeSearchRouter);
 v1Router.use("/notifications", notificationRouter);
 v1Router.use("/notification-preferences", notificationPreferenceRouter);
+v1Router.use("/communication", communicationRouter);
+

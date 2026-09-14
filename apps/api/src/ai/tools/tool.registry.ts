@@ -88,6 +88,11 @@ import { NotificationUnreadCountTool } from "./notification/notification_unread_
 import { NotificationGetTool } from "./notification/notification_get.tool";
 import { NotificationMarkReadTool } from "./notification/notification_mark_read.tool";
 import { NotificationMarkAllReadTool } from "./notification/notification_mark_all_read.tool";
+import { CommunicationListConversationsTool } from "./communication/communication_list_conversations.tool";
+import { CommunicationGetConversationTool } from "./communication/communication_get_conversation.tool";
+import { CommunicationListMessagesTool } from "./communication/communication_list_messages.tool";
+import { CommunicationSearchMessagesTool } from "./communication/communication_search_messages.tool";
+import { CommunicationGetThreadTool } from "./communication/communication_get_thread.tool";
 
 export class ToolRegistry {
   private static instance: ToolRegistry;
@@ -229,6 +234,25 @@ export class ToolRegistry {
     this.tools.set("notification_get", notifGet);
     this.tools.set("notification_mark_read", notifMarkRead);
     this.tools.set("notification_mark_all_read", notifMarkAllRead);
+
+    // Communication & Collaboration Production Tools (Phase 9)
+    const commList = new CommunicationListConversationsTool();
+    const commGet = new CommunicationGetConversationTool();
+    const commMessages = new CommunicationListMessagesTool();
+    const commSearch = new CommunicationSearchMessagesTool();
+    const commThread = new CommunicationGetThreadTool();
+
+    this.registerTool(commList);
+    this.registerTool(commGet);
+    this.registerTool(commMessages);
+    this.registerTool(commSearch);
+    this.registerTool(commThread);
+
+    this.tools.set("communication_list_conversations", commList);
+    this.tools.set("communication_get_conversation", commGet);
+    this.tools.set("communication_list_messages", commMessages);
+    this.tools.set("communication_search_messages", commSearch);
+    this.tools.set("communication_get_thread", commThread);
   }
 
   public registerTool(tool: IAITool): void {

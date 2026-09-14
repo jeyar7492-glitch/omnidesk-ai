@@ -3,7 +3,21 @@ export class AppError extends Error {
   public readonly code: string;
   public readonly details?: any;
 
-  constructor(message: string, statusCode: number = 400, code: string = "BAD_REQUEST", details?: any) {
+  constructor(
+    messageOrStatusCode: string | number,
+    statusCodeOrMessage: number | string = 400,
+    code: string = "BAD_REQUEST",
+    details?: any
+  ) {
+    let message: string;
+    let statusCode: number;
+    if (typeof messageOrStatusCode === "number") {
+      statusCode = messageOrStatusCode;
+      message = String(statusCodeOrMessage);
+    } else {
+      message = messageOrStatusCode;
+      statusCode = typeof statusCodeOrMessage === "number" ? statusCodeOrMessage : 400;
+    }
     super(message);
     this.statusCode = statusCode;
     this.code = code;

@@ -99,6 +99,26 @@ enum NotificationType {
   KNOWLEDGE_BASE_UPDATED
   SYSTEM_ALERT
   SECURITY_ALERT
+  COMMUNICATION_MESSAGE
+  COMMUNICATION_MENTION
+  COMMUNICATION_REPLY
+}
+
+enum ConversationType {
+  DIRECT
+  GROUP
+}
+
+enum ConversationMemberRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum MessageType {
+  TEXT
+  SYSTEM
+  ATTACHMENT
 }
 
 model User {
@@ -122,6 +142,12 @@ model User {
   aiConversations         AIConversation[]
   notifications           Notification[]
   notificationPreferences NotificationPreference[]
+  createdConversations    Conversation[]           @relation("ConversationCreatedBy")
+  conversationMemberships ConversationMember[]     @relation("UserConversationMembers")
+  sentMessages            Message[]                @relation("UserMessages")
+  uploadedAttachments     MessageAttachment[]      @relation("UserUploadedAttachments")
+  messageReactions        MessageReaction[]        @relation("UserMessageReactions")
+  messageMentions         MessageMention[]         @relation("UserMessageMentions")
   refreshTokens           RefreshToken[]
   createdAt               DateTime                 @default(now())
   updatedAt               DateTime                 @updatedAt
@@ -176,6 +202,12 @@ model Workspace {
   auditEvents             AuditEvent[]
   notifications           Notification[]
   notificationPreferences NotificationPreference[]
+  conversations           Conversation[]
+  conversationMembers     ConversationMember[]
+  messages                Message[]
+  messageAttachments      MessageAttachment[]
+  messageReactions        MessageReaction[]
+  messageMentions         MessageMention[]
   aiConversations         AIConversation[]
   aiApprovals             AIApprovalRequest[]
   aiExecutions    AIExecution[]
@@ -935,6 +967,7 @@ model NotificationPreference {
   financeCategory   Boolean              @default(true)
   documentsCategory Boolean              @default(true)
   systemCategory    Boolean              @default(true)
+  communicationCategory Boolean          @default(true)
   minPriority       NotificationPriority @default(LOW)
   createdAt         DateTime             @default(now())
   updatedAt         DateTime             @updatedAt
@@ -1023,3 +1056,132 @@ model AIExecution {
   @@index([workspaceId, status])
   @@index([workspaceId, createdAt])
 }
+
+model Conversation {
+  id              String             @id @default(auto()) @map("_id") @db.ObjectId
+  workspaceId     String             @db.ObjectId
+  workspace       Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  type            ConversationType   @default(DIRECT)
+  title           String?
+  description     String?
+  directKey       String?
+  createdById     String             @db.ObjectId
+  createdBy       User               @relation("ConversationCreatedBy", fields: [createdById], references: [id], onDelete: Cascade)
+  lastMessageAt   DateTime?          @default(now())
+  lastMessageText String?
+  isArchived      Boolean            @default(false)
+  archivedAt      DateTime?
+  members         ConversationMember[]
+  messages        Message[]
+  attachments     MessageAttachment[]
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  @@unique([workspaceId, directKey])
+  @@index([workspaceId, lastMessageAt])
+  @@index([workspaceId, type])
+  @@index([workspaceId, isArchived])
+}
+
+model ConversationMember {
+  id             String                 @id @default(auto()) @map("_id") @db.ObjectId
+  workspaceId    String                 @db.ObjectId
+  workspace      Workspace              @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  conversationId String                 @db.ObjectId
+  conversation   Conversation           @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  userId         String                 @db.ObjectId
+  user           User                   @relation("UserConversationMembers", fields: [userId], references: [id], onDelete: Cascade)
+  role           ConversationMemberRole @default(MEMBER)
+  joinedAt       DateTime               @default(now())
+  lastReadAt     DateTime               @default(now())
+  isMuted        Boolean                @default(false)
+  isArchived     Boolean                @default(false)
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+
+  @@unique([conversationId, userId])
+  @@index([workspaceId, userId])
+  @@index([workspaceId, userId, lastReadAt])
+}
+
+model Message {
+  id              String              @id @default(auto()) @map("_id") @db.ObjectId
+  workspaceId     String              @db.ObjectId
+  workspace       Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  conversationId  String              @db.ObjectId
+  conversation    Conversation        @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderId        String              @db.ObjectId
+  sender          User                @relation("UserMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  content         String
+  type            MessageType         @default(TEXT)
+  parentMessageId String?             @db.ObjectId
+  parentMessage   Message?            @relation("MessageReplies", fields: [parentMessageId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  replies         Message[]           @relation("MessageReplies")
+  replyCount      Int                 @default(0)
+  isEdited        Boolean             @default(false)
+  editedAt        DateTime?
+  isDeleted       Boolean             @default(false)
+  deletedAt       DateTime?
+  attachments     MessageAttachment[]
+  reactions       MessageReaction[]
+  mentions        MessageMention[]
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  @@index([workspaceId, conversationId, createdAt])
+  @@index([workspaceId, senderId, createdAt])
+  @@index([conversationId, parentMessageId])
+  @@index([workspaceId, isDeleted])
+}
+
+model MessageAttachment {
+  id              String       @id @default(auto()) @map("_id") @db.ObjectId
+  workspaceId     String       @db.ObjectId
+  workspace       Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  conversationId  String       @db.ObjectId
+  conversation    Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  messageId       String?      @db.ObjectId
+  message         Message?     @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  uploadedById    String       @db.ObjectId
+  uploadedBy      User         @relation("UserUploadedAttachments", fields: [uploadedById], references: [id], onDelete: Cascade)
+  fileName        String
+  fileSize        Int
+  mimeType        String
+  storageKey      String
+  storageProvider String       @default("local")
+  checksum        String?
+  createdAt       DateTime     @default(now())
+
+  @@index([workspaceId, conversationId])
+  @@index([messageId])
+}
+
+model MessageReaction {
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  workspaceId String    @db.ObjectId
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  messageId   String    @db.ObjectId
+  message     Message   @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  userId      String    @db.ObjectId
+  user        User      @relation("UserMessageReactions", fields: [userId], references: [id], onDelete: Cascade)
+  emoji       String
+  createdAt   DateTime  @default(now())
+
+  @@unique([messageId, userId, emoji])
+  @@index([workspaceId, messageId])
+}
+
+model MessageMention {
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  workspaceId String    @db.ObjectId
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  messageId   String    @db.ObjectId
+  message     Message   @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  userId      String    @db.ObjectId
+  user        User      @relation("UserMessageMentions", fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+
+  @@unique([messageId, userId])
+  @@index([workspaceId, userId])
+}
+

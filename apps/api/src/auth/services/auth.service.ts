@@ -55,6 +55,9 @@ export function getDefaultPermissionsForRole(role: string): string[] {
         "notification:read",
         "notification:write",
         "notification:delete",
+        "communication:read",
+        "communication:write",
+        "communication:manage",
         "ai:execute",
         "ai:approve",
         "ai:admin",
@@ -72,6 +75,8 @@ export function getDefaultPermissionsForRole(role: string): string[] {
         "knowledgebase:read",
         "notification:read",
         "notification:write",
+        "communication:read",
+        "communication:write",
         "ai:execute",
       ];
     case "MANAGER":
@@ -104,6 +109,9 @@ export function getDefaultPermissionsForRole(role: string): string[] {
         "notification:read",
         "notification:write",
         "notification:delete",
+        "communication:read",
+        "communication:write",
+        "communication:manage",
         "ai:execute",
       ];
     case "MEMBER":
@@ -125,6 +133,8 @@ export function getDefaultPermissionsForRole(role: string): string[] {
         "knowledgebase:write",
         "notification:read",
         "notification:write",
+        "communication:read",
+        "communication:write",
         "ai:execute",
       ];
     case "VIEWER":
@@ -142,6 +152,7 @@ export function getDefaultPermissionsForRole(role: string): string[] {
         "knowledgebase:read",
         "notification:read",
         "notification:write",
+        "communication:read",
       ];
     default:
       return [
@@ -152,6 +163,7 @@ export function getDefaultPermissionsForRole(role: string): string[] {
         "documents:read",
         "knowledgebase:read",
         "notification:read",
+        "communication:read",
       ];
   }
 }

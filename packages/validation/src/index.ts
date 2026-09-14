@@ -706,6 +706,9 @@ export const NotificationTypeEnum = z.enum([
   "KNOWLEDGE_BASE_UPDATED",
   "SYSTEM_ALERT",
   "SECURITY_ALERT",
+  "COMMUNICATION_MESSAGE",
+  "COMMUNICATION_MENTION",
+  "COMMUNICATION_REPLY",
 ]);
 
 export const NotificationQuerySchema = z.object({
@@ -740,9 +743,110 @@ export const UpdateNotificationPreferenceSchema = z.object({
   financeCategory: z.boolean().optional(),
   documentsCategory: z.boolean().optional(),
   systemCategory: z.boolean().optional(),
+  communicationCategory: z.boolean().optional(),
   minPriority: NotificationPriorityEnum.optional(),
 });
 
 export const notificationQuerySchema = NotificationQuerySchema;
 export const createNotificationSchema = CreateNotificationSchema;
 export const updateNotificationPreferenceSchema = UpdateNotificationPreferenceSchema;
+
+// ── Enterprise Communication & Collaboration Validation (Phase 9) ─────────────
+export const ConversationTypeEnum = z.enum(["DIRECT", "GROUP"]);
+export const ConversationMemberRoleEnum = z.enum(["OWNER", "ADMIN", "MEMBER"]);
+export const MessageTypeEnum = z.enum(["TEXT", "SYSTEM", "ATTACHMENT"]);
+
+export const CreateDirectConversationSchema = z.object({
+  targetUserId: z.string().min(1, "Target user ID is required"),
+});
+
+export const CreateGroupConversationSchema = z.object({
+  title: z.string().min(1, "Group title is required").max(100),
+  description: z.string().max(500).optional(),
+  memberIds: z.array(z.string().min(1)).min(1, "At least one member must be selected"),
+});
+
+export const CreateConversationSchema = z.discriminatedUnion("type", [
+  z.object({
+    type: z.literal("DIRECT"),
+    targetUserId: z.string().min(1, "Target user ID is required"),
+  }),
+  z.object({
+    type: z.literal("GROUP"),
+    title: z.string().min(1, "Group title is required").max(100),
+    description: z.string().max(500).optional(),
+    memberIds: z.array(z.string().min(1)).min(1, "At least one member must be selected"),
+  }),
+]);
+
+export const UpdateConversationSchema = z.object({
+  title: z.string().min(1).max(100).optional(),
+  description: z.string().max(500).optional().nullable(),
+  isMuted: z.boolean().optional(),
+  isArchived: z.boolean().optional(),
+});
+
+export const AddConversationMembersSchema = z.object({
+  memberIds: z.array(z.string().min(1)).min(1, "At least one member ID is required"),
+});
+
+export const SendMessageSchema = z.object({
+  content: z.string().min(1, "Message content cannot be empty").max(10000),
+  type: MessageTypeEnum.optional().default("TEXT"),
+  parentMessageId: z.string().optional().nullable(),
+  attachmentIds: z.array(z.string()).optional(),
+  mentionedUserIds: z.array(z.string()).optional(),
+});
+
+export const EditMessageSchema = z.object({
+  content: z.string().min(1, "Message content cannot be empty").max(10000),
+});
+
+export const AddReactionSchema = z.object({
+  emoji: z.string().min(1, "Emoji is required").max(16),
+});
+
+export const ConversationQuerySchema = z.object({
+  type: ConversationTypeEnum.optional(),
+  isArchived: z.preprocess((val) => (val === "true" ? true : val === "false" ? false : val), z.boolean().optional()),
+  search: z.string().optional(),
+  limit: z.coerce.number().int().positive().max(100).optional().default(50),
+  cursor: z.string().optional(),
+});
+
+export const MessageQuerySchema = z.object({
+  limit: z.coerce.number().int().positive().max(100).optional().default(50),
+  cursor: z.string().optional(),
+  direction: z.enum(["before", "after"]).optional().default("before"),
+  parentMessageId: z.string().optional(),
+});
+
+export const CommunicationSearchSchema = z.object({
+  query: z.string().min(1).max(200).optional(),
+  q: z.string().min(1).max(200).optional(),
+  conversationId: z.string().optional(),
+  cursor: z.string().optional(),
+  limit: z.coerce.number().int().positive().max(50).optional().default(20),
+}).refine((d) => Boolean(d.query || d.q), {
+  message: "Search query ('query' or 'q') is required",
+});
+
+export const TypingIndicatorSchema = z.object({
+  conversationId: z.string().min(1, "Conversation ID is required"),
+  isTyping: z.boolean().default(true),
+});
+
+// CamelCase export aliases
+export const createDirectConversationSchema = CreateDirectConversationSchema;
+export const createGroupConversationSchema = CreateGroupConversationSchema;
+export const createConversationSchema = CreateConversationSchema;
+export const updateConversationSchema = UpdateConversationSchema;
+export const addConversationMembersSchema = AddConversationMembersSchema;
+export const sendMessageSchema = SendMessageSchema;
+export const editMessageSchema = EditMessageSchema;
+export const addReactionSchema = AddReactionSchema;
+export const conversationQuerySchema = ConversationQuerySchema;
+export const messageQuerySchema = MessageQuerySchema;
+export const communicationSearchSchema = CommunicationSearchSchema;
+export const typingIndicatorSchema = TypingIndicatorSchema;
+

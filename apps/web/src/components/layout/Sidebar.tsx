@@ -9,10 +9,11 @@ import {
   Sparkles,
   Receipt,
   BookOpen,
+  MessageSquare,
 } from "lucide-react";
 import { useWorkspace } from "../../context/WorkspaceContext";
 
-export type NavTab = "dashboard" | "ai" | "projects" | "tasks" | "crm" | "finance" | "documents" | "system";
+export type NavTab = "dashboard" | "ai" | "projects" | "tasks" | "crm" | "finance" | "documents" | "communication" | "system";
 
 interface SidebarProps {
   activeTab: NavTab;
@@ -66,6 +67,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange }) => {
       label: "Knowledge & Docs",
       icon: BookOpen,
       requiredPermission: "documents:read",
+    },
+    {
+      id: "communication" as NavTab,
+      label: "Communication",
+      icon: MessageSquare,
+      requiredPermission: "communication:read",
     },
     {
       id: "system" as NavTab,

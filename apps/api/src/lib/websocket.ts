@@ -89,6 +89,10 @@ export class WebSocketManager {
         // Fallback default
       }
 
+      if (ws.isAuthenticated && ws.workspaceId && ws.userId) {
+        this.addPresence(ws.workspaceId, ws.userId);
+      }
+
       logger.info(
         {
           remoteAddress: req.socket.remoteAddress,
@@ -157,6 +161,7 @@ export class WebSocketManager {
               ws.userId = payload.userId;
               ws.workspaceId = targetWs;
               ws.isAuthenticated = true;
+              this.addPresence(ws.workspaceId, ws.userId);
 
               ws.send(
                 JSON.stringify({
@@ -220,6 +225,7 @@ export class WebSocketManager {
 
       ws.on("close", () => {
         this.clients.delete(ws);
+        this.removePresence(ws.workspaceId, ws.userId);
         logger.info("WebSocket client disconnected");
       });
     });
@@ -230,6 +236,7 @@ export class WebSocketManager {
         if (!ws.isAlive) {
           ws.terminate();
           this.clients.delete(ws);
+          this.removePresence(ws.workspaceId, ws.userId);
           return;
         }
         ws.isAlive = false;
@@ -240,6 +247,97 @@ export class WebSocketManager {
     this.wss.on("close", () => {
       clearInterval(interval);
     });
+  }
+
+  // ── In-Memory Presence Tracking ─────────────────────────────────────────────
+  private presenceMap: Map<string, Map<string, { socketCount: number; status: "online" | "away" | "offline"; lastSeen: string }>> = new Map();
+
+  public addPresence(workspaceId?: string, userId?: string, status: "online" | "away" | "offline" = "online"): void {
+    if (!workspaceId || !userId) return;
+    if (!this.presenceMap.has(workspaceId)) {
+      this.presenceMap.set(workspaceId, new Map());
+    }
+    const wsMap = this.presenceMap.get(workspaceId)!;
+    const userEntry = wsMap.get(userId) || { socketCount: 0, status: "online" as const, lastSeen: new Date().toISOString() };
+    userEntry.socketCount++;
+    userEntry.status = status;
+    userEntry.lastSeen = new Date().toISOString();
+    wsMap.set(userId, userEntry);
+
+    // Broadcast presence update
+    this.broadcastToWorkspace(workspaceId, "presence.updated", {
+      userId,
+      status,
+      lastSeen: userEntry.lastSeen,
+    });
+  }
+
+  public removePresence(workspaceId?: string, userId?: string): void {
+    if (!workspaceId || !userId) return;
+    const wsMap = this.presenceMap.get(workspaceId);
+    if (!wsMap) return;
+    const userEntry = wsMap.get(userId);
+    if (!userEntry) return;
+
+    userEntry.socketCount = Math.max(0, userEntry.socketCount - 1);
+    if (userEntry.socketCount === 0) {
+      userEntry.status = "offline";
+      userEntry.lastSeen = new Date().toISOString();
+      this.broadcastToWorkspace(workspaceId, "presence.updated", {
+        userId,
+        status: "offline",
+        lastSeen: userEntry.lastSeen,
+      });
+    }
+  }
+
+  public getPresence(workspaceId: string, userIds?: string[]): Record<string, { status: "online" | "away" | "offline"; lastSeen?: string }> {
+    const result: Record<string, { status: "online" | "away" | "offline"; lastSeen?: string }> = {};
+    const wsMap = this.presenceMap.get(workspaceId);
+    if (!wsMap) return result;
+
+    if (userIds && userIds.length > 0) {
+      for (const uid of userIds) {
+        const entry = wsMap.get(uid);
+        if (entry) {
+          result[uid] = { status: entry.status, lastSeen: entry.lastSeen };
+        } else {
+          result[uid] = { status: "offline" };
+        }
+      }
+    } else {
+      wsMap.forEach((entry, uid) => {
+        result[uid] = { status: entry.status, lastSeen: entry.lastSeen };
+      });
+    }
+    return result;
+  }
+
+  /**
+   * Relay typing indicator to specific conversation members without persistence.
+   */
+  public relayTyping(
+    workspaceId: string,
+    conversationId: string,
+    senderUserId: string,
+    senderName: string,
+    recipientUserIds: string[],
+    isTyping: boolean
+  ): void {
+    const recipients = recipientUserIds.filter((id) => id !== senderUserId);
+    if (!recipients.length) return;
+
+    this.sendToUsers(
+      workspaceId,
+      recipients,
+      isTyping ? "typing.started" : "typing.stopped",
+      {
+        conversationId,
+        userId: senderUserId,
+        userName: senderName,
+        isTyping,
+      }
+    );
   }
 
   /**
@@ -266,7 +364,6 @@ export class WebSocketManager {
 
     this.clients.forEach((client) => {
       // STRICT TENANT ISOLATION:
-      // Client must be open AND client's verified workspaceId must EXACTLY match the target workspaceId.
       if (
         client.readyState === WebSocket.OPEN &&
         client.workspaceId &&
@@ -301,11 +398,46 @@ export class WebSocketManager {
     const dataStr = JSON.stringify(envelope);
 
     this.clients.forEach((client) => {
-      // STRICT TENANT & USER ISOLATION:
       if (
         client.readyState === WebSocket.OPEN &&
         client.workspaceId === workspaceId &&
         client.userId === userId
+      ) {
+        client.send(dataStr);
+      }
+    });
+  }
+
+  /**
+   * Send an event strictly to a subset of users authenticated in the target workspace.
+   */
+  public sendToUsers<T>(
+    workspaceId: string,
+    userIds: string[],
+    event: string,
+    payload: T,
+    sender?: { userId: string; role?: string }
+  ): void {
+    if (!workspaceId || !userIds.length) return;
+    const userSet = new Set(userIds);
+
+    const envelope: RealtimeEventEnvelope<T> = {
+      id: `evt_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      event,
+      workspaceId,
+      payload,
+      timestamp: new Date().toISOString(),
+      sender,
+    };
+
+    const dataStr = JSON.stringify(envelope);
+
+    this.clients.forEach((client) => {
+      if (
+        client.readyState === WebSocket.OPEN &&
+        client.workspaceId === workspaceId &&
+        client.userId &&
+        userSet.has(client.userId)
       ) {
         client.send(dataStr);
       }
@@ -318,3 +450,4 @@ export class WebSocketManager {
 }
 
 export const wsManager = new WebSocketManager();
+

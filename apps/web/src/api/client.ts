@@ -57,6 +57,21 @@ import {
   NotificationQuery,
   NotificationListResponse,
   UnreadNotificationCountResponse,
+  ConversationSummary,
+  ConversationDetail,
+  MessageSummary,
+  MessageAttachmentSummary,
+  MessageReactionSummary,
+  CreateDirectConversationInput,
+  CreateGroupConversationInput,
+  UpdateConversationInput,
+  SendMessageInput,
+  EditMessageInput,
+  ConversationListQuery,
+  MessageListQuery,
+  CommunicationSearchQuery,
+  UnreadCommunicationCountResponse,
+  PresenceStatus,
 } from "@omnidesk/shared-types";
 
 
@@ -128,6 +143,9 @@ export class ApiClient {
       "documents:delete",
       "knowledgebase:read",
       "knowledgebase:write",
+      "communication:read",
+      "communication:write",
+      "communication:manage",
       "system:admin",
     ],
   };
@@ -1552,6 +1570,162 @@ export class ApiClient {
     return this.request<NotificationPreferenceSummary>("/notification-preferences", {
       method: "PUT",
       body: JSON.stringify(data),
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Communication & Collaboration (Phase 9)
+  // ---------------------------------------------------------------------------
+
+  public async listConversations(query?: ConversationListQuery): Promise<{ items: ConversationSummary[]; nextCursor: string | null; hasMore: boolean }> {
+    const params = new URLSearchParams();
+    if (query?.type) params.set("type", query.type);
+    if (query?.search) params.set("search", query.search);
+    if (query?.limit) params.set("limit", String(query.limit));
+    if (query?.cursor) params.set("cursor", query.cursor);
+    const qs = params.toString() ? `?${params.toString()}` : "";
+    return this.request<{ items: ConversationSummary[]; nextCursor: string | null; hasMore: boolean }>(`/communication/conversations${qs}`);
+  }
+
+  public async getConversation(conversationId: string): Promise<ConversationDetail> {
+    return this.request<ConversationDetail>(`/communication/conversations/${conversationId}`);
+  }
+
+  public async createDirectConversation(input: CreateDirectConversationInput): Promise<ConversationDetail> {
+    return this.request<ConversationDetail>("/communication/conversations", {
+      method: "POST",
+      body: JSON.stringify({ type: "DIRECT", ...input }),
+    });
+  }
+
+  public async createGroupConversation(input: CreateGroupConversationInput): Promise<ConversationDetail> {
+    return this.request<ConversationDetail>("/communication/conversations", {
+      method: "POST",
+      body: JSON.stringify({ type: "GROUP", ...input }),
+    });
+  }
+
+  public async updateConversation(conversationId: string, input: UpdateConversationInput): Promise<ConversationDetail> {
+    return this.request<ConversationDetail>(`/communication/conversations/${conversationId}`, {
+      method: "PATCH",
+      body: JSON.stringify(input),
+    });
+  }
+
+  public async addConversationMembers(conversationId: string, userIds: string[]): Promise<ConversationDetail> {
+    return this.request<ConversationDetail>(`/communication/conversations/${conversationId}/members`, {
+      method: "POST",
+      body: JSON.stringify({ userIds }),
+    });
+  }
+
+  public async removeConversationMember(conversationId: string, targetUserId: string): Promise<{ success: boolean; message: string }> {
+    return this.request<{ success: boolean; message: string }>(`/communication/conversations/${conversationId}/members/${targetUserId}`, {
+      method: "DELETE",
+    });
+  }
+
+  public async listMessages(conversationId: string, query?: MessageListQuery): Promise<{ items: MessageSummary[]; nextCursor: string | null; hasMore: boolean }> {
+    const params = new URLSearchParams();
+    if (query?.limit) params.set("limit", String(query.limit));
+    if (query?.cursor) params.set("cursor", query.cursor);
+    if (query?.direction) params.set("direction", query.direction);
+    const qs = params.toString() ? `?${params.toString()}` : "";
+    return this.request<{ items: MessageSummary[]; nextCursor: string | null; hasMore: boolean }>(`/communication/conversations/${conversationId}/messages${qs}`);
+  }
+
+  public async sendMessage(conversationId: string, input: SendMessageInput): Promise<MessageSummary> {
+    return this.request<MessageSummary>(`/communication/conversations/${conversationId}/messages`, {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+  }
+
+  public async getMessage(conversationId: string, messageId: string): Promise<MessageSummary> {
+    return this.request<MessageSummary>(`/communication/conversations/${conversationId}/messages/${messageId}`);
+  }
+
+  public async getThread(conversationId: string, messageId: string, query?: { limit?: number; cursor?: string }): Promise<{ parentMessage: MessageSummary; replies: MessageSummary[]; nextCursor: string | null; hasMore: boolean }> {
+    const params = new URLSearchParams();
+    if (query?.limit) params.set("limit", String(query.limit));
+    if (query?.cursor) params.set("cursor", query.cursor);
+    const qs = params.toString() ? `?${params.toString()}` : "";
+    return this.request<{ parentMessage: MessageSummary; replies: MessageSummary[]; nextCursor: string | null; hasMore: boolean }>(`/communication/conversations/${conversationId}/messages/${messageId}/thread${qs}`);
+  }
+
+  public async editMessage(conversationId: string, messageId: string, input: EditMessageInput): Promise<MessageSummary> {
+    return this.request<MessageSummary>(`/communication/conversations/${conversationId}/messages/${messageId}`, {
+      method: "PATCH",
+      body: JSON.stringify(input),
+    });
+  }
+
+  public async deleteMessage(conversationId: string, messageId: string): Promise<{ success: boolean; messageId: string }> {
+    return this.request<{ success: boolean; messageId: string }>(`/communication/conversations/${conversationId}/messages/${messageId}`, {
+      method: "DELETE",
+    });
+  }
+
+  public async addReaction(conversationId: string, messageId: string, emoji: string): Promise<MessageReactionSummary> {
+    return this.request<MessageReactionSummary>(`/communication/conversations/${conversationId}/messages/${messageId}/reactions`, {
+      method: "POST",
+      body: JSON.stringify({ emoji }),
+    });
+  }
+
+  public async removeReaction(conversationId: string, messageId: string, emoji: string): Promise<{ success: boolean }> {
+    return this.request<{ success: boolean }>(`/communication/conversations/${conversationId}/messages/${messageId}/reactions/${encodeURIComponent(emoji)}`, {
+      method: "DELETE",
+    });
+  }
+
+  public async markConversationRead(conversationId: string, lastReadMessageId?: string): Promise<{ success: boolean; lastReadAt: string; unreadCount: number }> {
+    return this.request<{ success: boolean; lastReadAt: string; unreadCount: number }>(`/communication/conversations/${conversationId}/read`, {
+      method: "POST",
+      body: JSON.stringify({ lastReadMessageId }),
+    });
+  }
+
+  public async getCommunicationUnreadCounts(): Promise<UnreadCommunicationCountResponse> {
+    return this.request<UnreadCommunicationCountResponse>("/communication/unread-count");
+  }
+
+  public async searchCommunication(query: CommunicationSearchQuery): Promise<{ items: MessageSummary[]; total: number }> {
+    const params = new URLSearchParams();
+    const searchTerm = query.q || query.query;
+    if (searchTerm) params.set("q", searchTerm);
+    if (query.conversationId) params.set("conversationId", query.conversationId);
+    if (query.limit) params.set("limit", String(query.limit));
+    if (query.cursor) params.set("cursor", query.cursor);
+    const qs = params.toString() ? `?${params.toString()}` : "";
+    return this.request<{ items: MessageSummary[]; total: number }>(`/communication/search${qs}`);
+  }
+
+  public async uploadAttachment(conversationId: string, file: File): Promise<MessageAttachmentSummary> {
+    const formData = new FormData();
+    formData.append("conversationId", conversationId);
+    formData.append("file", file);
+    return this.request<MessageAttachmentSummary>("/communication/attachments", {
+      method: "POST",
+      body: formData,
+    });
+  }
+
+  public getAttachmentDownloadUrl(attachmentId: string): string {
+    return `${this.baseUrl}/communication/attachments/${attachmentId}/download`;
+  }
+
+  public async updatePresence(status: PresenceStatus): Promise<{ userId: string; status: PresenceStatus; lastSeen: string }> {
+    return this.request<{ userId: string; status: PresenceStatus; lastSeen: string }>("/communication/presence", {
+      method: "PUT",
+      body: JSON.stringify({ status }),
+    });
+  }
+
+  public async sendTyping(conversationId: string, isTyping: boolean): Promise<{ success: boolean }> {
+    return this.request<{ success: boolean }>("/communication/typing", {
+      method: "POST",
+      body: JSON.stringify({ conversationId, isTyping }),
     });
   }
 }

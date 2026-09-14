@@ -9,6 +9,7 @@ import { TasksView } from "./components/tasks/TasksView";
 import { CRMView } from "./components/crm/CRMView";
 import { FinanceView } from "./components/finance/FinanceView";
 import { KnowledgePortalView } from "./components/knowledge/KnowledgePortalView";
+import { CommunicationView } from "./components/communication/CommunicationView";
 import { SystemView } from "./components/system/SystemView";
 import { LoginView } from "./components/auth/LoginView";
 import { GlobalSearchModal } from "./components/search/GlobalSearchModal";
@@ -27,6 +28,7 @@ function WorkspaceApp(): React.ReactElement {
     crm: "CRM Deals & Sales Pipeline",
     finance: "Enterprise Finance & Invoicing",
     documents: "Enterprise Documents & Knowledge Base",
+    communication: "Enterprise Communication & Collaboration",
     system: "System Telemetry & Architecture",
   };
 
@@ -101,6 +103,7 @@ function WorkspaceApp(): React.ReactElement {
         {activeTab === "crm" && <CRMView />}
         {activeTab === "finance" && <FinanceView />}
         {activeTab === "documents" && <KnowledgePortalView />}
+        {activeTab === "communication" && <CommunicationView />}
         {activeTab === "system" && <SystemView />}
       </div>
 

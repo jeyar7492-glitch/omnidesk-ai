@@ -73,6 +73,7 @@ export class NotificationService {
     if (type.startsWith("LEAD_") || type.startsWith("DEAL_")) return "crm";
     if (type.startsWith("INVOICE_") || type.startsWith("PAYMENT_") || type.startsWith("EXPENSE_")) return "finance";
     if (type.startsWith("DOCUMENT_") || type.startsWith("KNOWLEDGE_")) return "documents";
+    if (type.startsWith("COMMUNICATION_")) return "communication";
     return "system";
   }
 
@@ -88,6 +89,7 @@ export class NotificationService {
       financeCategory: boolean;
       documentsCategory: boolean;
       systemCategory: boolean;
+      communicationCategory?: boolean;
       minPriority: NotificationPriority;
     },
     type: NotificationType,
@@ -113,6 +115,8 @@ export class NotificationService {
         return pref.financeCategory;
       case "documents":
         return pref.documentsCategory;
+      case "communication":
+        return pref.communicationCategory ?? true;
       case "system":
         return pref.systemCategory;
       default:
@@ -575,6 +579,7 @@ export class NotificationService {
         financeCategory: true,
         documentsCategory: true,
         systemCategory: true,
+        communicationCategory: true,
         minPriority: "LOW",
       },
     });
@@ -609,6 +614,7 @@ export class NotificationService {
         financeCategory: input.financeCategory,
         documentsCategory: input.documentsCategory,
         systemCategory: input.systemCategory,
+        communicationCategory: input.communicationCategory,
         minPriority: input.minPriority,
       },
     });
@@ -633,6 +639,7 @@ export class NotificationService {
       id: n.id,
       workspaceId: n.workspaceId,
       userId: n.userId,
+      recipientId: n.recipientId || n.userId,
       type: n.type as NotificationType,
       title: n.title,
       message: n.message,
@@ -664,6 +671,7 @@ export class NotificationService {
       financeCategory: p.financeCategory,
       documentsCategory: p.documentsCategory,
       systemCategory: p.systemCategory,
+      communicationCategory: p.communicationCategory ?? true,
       minPriority: p.minPriority as NotificationPriority,
       createdAt: p.createdAt.toISOString(),
       updatedAt: p.updatedAt.toISOString(),

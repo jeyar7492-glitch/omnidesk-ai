@@ -880,6 +880,7 @@ export interface GlobalSearchResponse {
     finance?: SearchResultItem[];
     documents?: SearchResultItem[];
     knowledgeBases?: SearchResultItem[];
+    communication?: SearchResultItem[];
   };
 }
 
@@ -1315,7 +1316,10 @@ export type NotificationType =
   | "DOCUMENT_FAILED"
   | "KNOWLEDGE_BASE_UPDATED"
   | "SYSTEM_ALERT"
-  | "SECURITY_ALERT";
+  | "SECURITY_ALERT"
+  | "COMMUNICATION_MESSAGE"
+  | "COMMUNICATION_MENTION"
+  | "COMMUNICATION_REPLY";
 
 export type NotificationDeliveryChannel = "in_app" | "email";
 export type NotificationDeliveryStatus = "delivered" | "pending" | "failed" | "skipped";
@@ -1334,6 +1338,7 @@ export interface NotificationSummary {
   id: string;
   workspaceId: string;
   userId: string;
+  recipientId: string;
   type: NotificationType;
   title: string;
   message: string;
@@ -1346,6 +1351,13 @@ export interface NotificationSummary {
   readAt?: string | null;
   isArchived: boolean;
   archivedAt?: string | null;
+  senderId?: string | null;
+  sender?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+  } | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -1367,6 +1379,7 @@ export interface NotificationPreferenceSummary {
   financeCategory: boolean;
   documentsCategory: boolean;
   systemCategory: boolean;
+  communicationCategory: boolean;
   minPriority: NotificationPriority;
   createdAt: string;
   updatedAt: string;
@@ -1382,6 +1395,7 @@ export interface UpdateNotificationPreferenceInput {
   financeCategory?: boolean;
   documentsCategory?: boolean;
   systemCategory?: boolean;
+  communicationCategory?: boolean;
   minPriority?: NotificationPriority;
 }
 
@@ -1412,3 +1426,222 @@ export interface UnreadNotificationCountResponse {
   workspaceId: string;
   userId: string;
 }
+
+// ── Phase 9: Enterprise Communication & Collaboration ─────────────────────────
+export type ConversationType = "DIRECT" | "GROUP";
+export type ConversationMemberRole = "OWNER" | "ADMIN" | "MEMBER";
+export type MessageType = "TEXT" | "SYSTEM" | "ATTACHMENT";
+export type PresenceStatus = "online" | "away" | "busy" | "offline" | "ONLINE" | "AWAY" | "BUSY" | "OFFLINE";
+
+export interface ConversationMemberSummary {
+  id: string;
+  workspaceId: string;
+  conversationId: string;
+  userId: string;
+  role: ConversationMemberRole;
+  joinedAt: string;
+  lastReadAt: string | null;
+  isMuted: boolean;
+  isArchived: boolean;
+  user?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    avatarUrl?: string | null;
+  };
+}
+
+export interface MessageAttachmentSummary {
+  id: string;
+  workspaceId: string;
+  conversationId: string;
+  messageId?: string | null;
+  uploadedById: string;
+  fileName: string;
+  fileSize: number;
+  mimeType: string;
+  storageKey: string;
+  storageProvider: string;
+  checksum?: string | null;
+  createdAt: string;
+  downloadUrl?: string;
+  uploadedBy?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+  };
+}
+
+export interface MessageReactionSummary {
+  id: string;
+  messageId: string;
+  userId: string;
+  emoji: string;
+  createdAt: string;
+  user?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+  };
+}
+
+export interface MessageMentionSummary {
+  id: string;
+  messageId: string;
+  userId: string;
+  createdAt: string;
+  user?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+  };
+}
+
+export interface MessageSummary {
+  id: string;
+  workspaceId: string;
+  conversationId: string;
+  senderId: string;
+  content: string;
+  type: MessageType;
+  parentMessageId?: string | null;
+  replyCount: number;
+  isEdited: boolean;
+  editedAt?: string | null;
+  isDeleted: boolean;
+  deletedAt?: string | null;
+  sender?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    avatarUrl?: string | null;
+    email: string;
+  };
+  attachments?: MessageAttachmentSummary[];
+  reactions?: MessageReactionSummary[];
+  mentions?: MessageMentionSummary[];
+  parentMessage?: {
+    id: string;
+    content: string;
+    senderId: string;
+    senderName?: string;
+  } | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ConversationSummary {
+  id: string;
+  workspaceId: string;
+  type: ConversationType;
+  title?: string | null;
+  description?: string | null;
+  directKey?: string | null;
+  createdById: string;
+  lastMessageAt?: string | null;
+  lastMessageText?: string | null;
+  isArchived: boolean;
+  archivedAt?: string | null;
+  membersCount: number;
+  unreadCount: number;
+  lastReadAt?: string | null;
+  isMuted?: boolean;
+  otherMember?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    avatarUrl?: string | null;
+    presence?: PresenceStatus;
+  } | null;
+  members?: ConversationMemberSummary[];
+  lastMessage?: MessageSummary | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ConversationDetail extends ConversationSummary {
+  members: ConversationMemberSummary[];
+}
+
+export interface CreateDirectConversationInput {
+  targetUserId: string;
+}
+
+export interface CreateGroupConversationInput {
+  title: string;
+  description?: string;
+  memberIds: string[];
+}
+
+export interface UpdateConversationInput {
+  title?: string;
+  description?: string | null;
+  isMuted?: boolean;
+  isArchived?: boolean;
+}
+
+export interface AddConversationMembersInput {
+  memberIds: string[];
+}
+
+export interface SendMessageInput {
+  content: string;
+  type?: MessageType;
+  parentMessageId?: string | null;
+  attachmentIds?: string[];
+  mentionedUserIds?: string[];
+}
+
+export interface EditMessageInput {
+  content: string;
+}
+
+export interface AddReactionInput {
+  emoji: string;
+}
+
+export interface ConversationListQuery {
+  type?: ConversationType;
+  isArchived?: boolean;
+  search?: string;
+  limit?: number;
+  cursor?: string;
+}
+
+export interface MessageListQuery {
+  limit?: number;
+  cursor?: string;
+  direction?: "before" | "after";
+  parentMessageId?: string;
+}
+
+export interface CommunicationSearchQuery {
+  query?: string;
+  q?: string;
+  conversationId?: string;
+  cursor?: string;
+  limit?: number;
+}
+
+export interface UnreadCommunicationCountResponse {
+  unreadMessagesCount: number;
+  unreadConversationsCount: number;
+  workspaceId: string;
+  userId: string;
+}
+
+export interface TypingPayload {
+  conversationId: string;
+  userId: string;
+  userName: string;
+  isTyping: boolean;
+}
+
+export interface PresencePayload {
+  userId: string;
+  status: PresenceStatus;
+  lastSeen?: string;
+}
+

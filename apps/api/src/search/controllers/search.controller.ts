@@ -8,6 +8,7 @@ export class SearchController {
     try {
       const authReq = req as AuthenticatedRequest;
       const workspaceId = authReq.context.workspaceId;
+      const userId = authReq.context.userId;
 
       const validated = GlobalSearchQuerySchema.parse({
         q: req.query.q,
@@ -15,7 +16,7 @@ export class SearchController {
         types: req.query.types,
       });
 
-      const results = await searchService.search(workspaceId, validated.q, validated.limit);
+      const results = await searchService.search(workspaceId, validated.q, validated.limit, userId);
 
       return res.status(200).json({
         success: true,

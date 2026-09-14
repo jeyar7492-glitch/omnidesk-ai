@@ -9,7 +9,8 @@ export class SearchService {
   public async search(
     workspaceId: string,
     query: string,
-    limit: number = 20
+    limit: number = 20,
+    userId?: string
   ): Promise<GlobalSearchResponse> {
     const trimmedQuery = query.trim();
     if (!trimmedQuery) {
@@ -25,6 +26,7 @@ export class SearchService {
           finance: [],
           documents: [],
           knowledgeBases: [],
+          communication: [],
         },
       };
     }
@@ -486,6 +488,47 @@ export class SearchService {
       },
     }));
 
+    // Query Communication Messages (strictly scoped to user's conversation memberships)
+    const communicationResults: SearchResultItem[] = [];
+    if (userId) {
+      const memberships = await prisma.conversationMember.findMany({
+        where: { workspaceId, userId },
+        select: { conversationId: true },
+      });
+      const convIds = memberships.map((m) => m.conversationId);
+      if (convIds.length > 0) {
+        const matchingMessages = await prisma.message.findMany({
+          where: {
+            workspaceId,
+            conversationId: { in: convIds },
+            isDeleted: false,
+            content: { contains: trimmedQuery, mode: "insensitive" },
+          },
+          take: perEntityLimit,
+          include: {
+            sender: {
+              select: { firstName: true, lastName: true },
+            },
+          },
+        });
+
+        for (const msg of matchingMessages) {
+          const senderName = `${msg.sender?.firstName || "User"} ${msg.sender?.lastName || ""}`.trim();
+          communicationResults.push({
+            id: msg.id,
+            entityType: "task" as const, // Map to valid search result item entityType
+            title: msg.content.length > 60 ? `${msg.content.substring(0, 57)}...` : msg.content,
+            subtitle: `Message from ${senderName}`,
+            badge: "Chat",
+            navigationTarget: {
+              tab: "communication" as any,
+              entityId: msg.conversationId,
+            },
+          });
+        }
+      }
+    }
+
     // Apply limits per group
     const slicedProjects = projectResults.slice(0, limit);
     const slicedTasks = taskResults.slice(0, limit);
@@ -495,6 +538,7 @@ export class SearchService {
     const slicedFinance = financeResults.slice(0, limit);
     const slicedDocuments = documentResults.slice(0, limit);
     const slicedKb = kbResults.slice(0, limit);
+    const slicedCommunication = communicationResults.slice(0, limit);
 
     const totalResults =
       slicedProjects.length +
@@ -504,7 +548,8 @@ export class SearchService {
       slicedAi.length +
       slicedFinance.length +
       slicedDocuments.length +
-      slicedKb.length;
+      slicedKb.length +
+      slicedCommunication.length;
 
     return {
       query: trimmedQuery,
@@ -518,6 +563,7 @@ export class SearchService {
         finance: slicedFinance,
         documents: slicedDocuments,
         knowledgeBases: slicedKb,
+        communication: slicedCommunication,
       },
     };
   }
