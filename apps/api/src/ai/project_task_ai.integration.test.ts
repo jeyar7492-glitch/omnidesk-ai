@@ -455,7 +455,7 @@ describe("Phase 2 Step 4: Real Project Management & Task Agent Production Pipeli
       toolId: "task_move",
       arguments: {
         taskId: task.id,
-        targetStatus: "review",
+        targetStatus: "in_review",
         reason: "PR submitted for code review",
       },
       reason: "Advance to review stage",
@@ -472,7 +472,7 @@ describe("Phase 2 Step 4: Real Project Management & Task Agent Production Pipeli
 
     expect(response.executed).toBe(true);
     const updated = await prisma.task.findUnique({ where: { id: task.id } });
-    expect(updated?.status).toBe("review");
+    expect(updated?.status).toBe("in_review");
   });
 
   it("12. Invalid stage movement is rejected with ValidationError", async () => {

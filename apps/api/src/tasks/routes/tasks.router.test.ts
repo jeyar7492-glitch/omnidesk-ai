@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll } from "vitest";
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import request from "supertest";
 import { createApp } from "../../app";
 import { prisma } from "../../lib/prisma";
@@ -9,6 +9,7 @@ describe("Phase 5 Enterprise Tasks, Kanban & Dependencies REST API Endpoints", (
   const foreignWorkspaceId = "67b844ec10ec6e3973b5cc22";
   const testUserId = "67b844ec10ec6e3973b5cc33";
   const memberUserId = "67b844ec10ec6e3973b5cc44";
+  const createdTaskIds: string[] = [];
 
   beforeAll(async () => {
     await prisma.user.upsert({
@@ -38,6 +39,22 @@ describe("Phase 5 Enterprise Tasks, Kanban & Dependencies REST API Endpoints", (
     });
   });
 
+  afterAll(async () => {
+    if (createdTaskIds.length > 0) {
+      await prisma.taskChecklist.deleteMany({ where: { taskId: { in: createdTaskIds } } });
+      await prisma.taskComment.deleteMany({ where: { taskId: { in: createdTaskIds } } });
+      await prisma.taskDependency.deleteMany({
+        where: {
+          OR: [
+            { taskId: { in: createdTaskIds } },
+            { dependsOnTaskId: { in: createdTaskIds } },
+          ],
+        },
+      });
+      await prisma.task.deleteMany({ where: { id: { in: createdTaskIds } } });
+    }
+  });
+
   // ── 1. Task CRUD & Filtering ──────────────────────────────────────────────
   it("POST /api/v1/tasks creates a task with priority, status, and position", async () => {
     const res = await request(app)
@@ -56,6 +73,7 @@ describe("Phase 5 Enterprise Tasks, Kanban & Dependencies REST API Endpoints", (
 
     expect(res.status).toBe(201);
     expect(res.body.success).toBe(true);
+    if (res.body.data?.id) createdTaskIds.push(res.body.data.id);
     expect(res.body.data.title).toBe("Enterprise Core Auth Engine");
     expect(res.body.data.priority).toBe("HIGH");
     expect(res.body.data.status).toBe("todo");
@@ -86,6 +104,7 @@ describe("Phase 5 Enterprise Tasks, Kanban & Dependencies REST API Endpoints", (
         status: "todo",
       },
     });
+    createdTaskIds.push(task.id);
 
     const res = await request(app)
       .patch(`/api/v1/tasks/${task.id}`)
@@ -117,6 +136,7 @@ describe("Phase 5 Enterprise Tasks, Kanban & Dependencies REST API Endpoints", (
         status: "backlog",
       },
     });
+    createdTaskIds.push(task.id);
 
     // Move backlog -> todo
     const res1 = await request(app)
@@ -176,6 +196,7 @@ describe("Phase 5 Enterprise Tasks, Kanban & Dependencies REST API Endpoints", (
         position: 0,
       },
     });
+    createdTaskIds.push(task.id);
 
     const res = await request(app)
       .post(`/api/v1/tasks/${task.id}/reorder`)
@@ -198,6 +219,7 @@ describe("Phase 5 Enterprise Tasks, Kanban & Dependencies REST API Endpoints", (
     const task = await prisma.task.create({
       data: { workspaceId: testWorkspaceId, title: "Unassigned Task", status: "todo" },
     });
+    createdTaskIds.push(task.id);
 
     const res = await request(app)
       .post(`/api/v1/tasks/${task.id}/assign`)
@@ -216,6 +238,7 @@ describe("Phase 5 Enterprise Tasks, Kanban & Dependencies REST API Endpoints", (
     const task = await prisma.task.create({
       data: { workspaceId: testWorkspaceId, title: "Task for Archival" },
     });
+    createdTaskIds.push(task.id);
 
     // Archive
     const archRes = await request(app)
@@ -245,6 +268,7 @@ describe("Phase 5 Enterprise Tasks, Kanban & Dependencies REST API Endpoints", (
     const task = await prisma.task.create({
       data: { workspaceId: testWorkspaceId, title: "Checklist Master Task" },
     });
+    createdTaskIds.push(task.id);
 
     // Create multiple items
     const createRes = await request(app)
@@ -289,6 +313,7 @@ describe("Phase 5 Enterprise Tasks, Kanban & Dependencies REST API Endpoints", (
     const task = await prisma.task.create({
       data: { workspaceId: testWorkspaceId, title: "Self Dependent Task" },
     });
+    createdTaskIds.push(task.id);
 
     const res = await request(app)
       .post(`/api/v1/tasks/${task.id}/dependencies`)
@@ -306,9 +331,11 @@ describe("Phase 5 Enterprise Tasks, Kanban & Dependencies REST API Endpoints", (
     const taskA = await prisma.task.create({
       data: { workspaceId: testWorkspaceId, title: "Workspace A Task" },
     });
+    createdTaskIds.push(taskA.id);
     const foreignTask = await prisma.task.create({
       data: { workspaceId: foreignWorkspaceId, title: "Workspace B Task" },
     });
+    createdTaskIds.push(foreignTask.id);
 
     const res = await request(app)
       .post(`/api/v1/tasks/${taskA.id}/dependencies`)
@@ -325,9 +352,11 @@ describe("Phase 5 Enterprise Tasks, Kanban & Dependencies REST API Endpoints", (
     const taskA = await prisma.task.create({
       data: { workspaceId: testWorkspaceId, title: "Cycle Task A", status: "todo" },
     });
+    createdTaskIds.push(taskA.id);
     const taskB = await prisma.task.create({
       data: { workspaceId: testWorkspaceId, title: "Cycle Task B", status: "todo" },
     });
+    createdTaskIds.push(taskB.id);
 
     // A depends on B
     const res1 = await request(app)
@@ -357,9 +386,11 @@ describe("Phase 5 Enterprise Tasks, Kanban & Dependencies REST API Endpoints", (
     const prereq = await prisma.task.create({
       data: { workspaceId: testWorkspaceId, title: "Unfinished Prereq", status: "todo" },
     });
+    createdTaskIds.push(prereq.id);
     const mainTask = await prisma.task.create({
       data: { workspaceId: testWorkspaceId, title: "Dependent Target Task", status: "todo" },
     });
+    createdTaskIds.push(mainTask.id);
 
     // Add dependency
     const depRes = await request(app)
@@ -391,6 +422,7 @@ describe("Phase 5 Enterprise Tasks, Kanban & Dependencies REST API Endpoints", (
     const task = await prisma.task.create({
       data: { workspaceId: testWorkspaceId, title: "Task for Comment Thread" },
     });
+    createdTaskIds.push(task.id);
 
     // Add comment
     const addRes = await request(app)
@@ -462,6 +494,7 @@ describe("Phase 5 Enterprise Tasks, Kanban & Dependencies REST API Endpoints", (
         title: "Foreign Secret Task",
       },
     });
+    createdTaskIds.push(foreignTask.id);
 
     const res = await request(app)
       .get(`/api/v1/tasks/${foreignTask.id}`)

@@ -213,7 +213,7 @@ describe("Phase 2 Step 2: Real AI Provider + Task Management Production Pipeline
       toolId: "task_move",
       arguments: {
         taskId: seeded.id,
-        targetStatus: "review",
+        targetStatus: "in_review",
       },
       reason: "Move to review after PR opened",
       riskLevel: "MEDIUM",
@@ -229,9 +229,9 @@ describe("Phase 2 Step 2: Real AI Provider + Task Management Production Pipeline
 
     expect(response.executed).toBe(true);
     const moveResult: any = response.result?.result;
-    expect(moveResult.newStatus).toBe("review");
+    expect(moveResult.newStatus).toBe("in_review");
 
-    // Now transition from review to done
+    // Now transition from in_review to done
     const finishMoveProposal: ToolCallProposal = {
       toolId: "task_move",
       arguments: {

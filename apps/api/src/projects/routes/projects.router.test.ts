@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll } from "vitest";
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import request from "supertest";
 import { createApp } from "../../app";
 import { prisma } from "../../lib/prisma";
@@ -9,6 +9,7 @@ describe("Phase 5 Enterprise Projects & Milestones REST API Endpoints", () => {
   const foreignWorkspaceId = "67b844ec10ec6e3973b5cc22";
   const testUserId = "67b844ec10ec6e3973b5cc33";
   const memberUserId = "67b844ec10ec6e3973b5cc44";
+  const createdProjectIds: string[] = [];
 
   beforeAll(async () => {
     await prisma.user.upsert({
@@ -49,6 +50,15 @@ describe("Phase 5 Enterprise Projects & Milestones REST API Endpoints", () => {
     });
   });
 
+  afterAll(async () => {
+    if (createdProjectIds.length > 0) {
+      await prisma.projectMember.deleteMany({ where: { projectId: { in: createdProjectIds } } });
+      await prisma.milestone.deleteMany({ where: { projectId: { in: createdProjectIds } } });
+      await prisma.task.deleteMany({ where: { projectId: { in: createdProjectIds } } });
+      await prisma.project.deleteMany({ where: { id: { in: createdProjectIds } } });
+    }
+  });
+
   it("POST /api/v1/projects creates a project with auto-generated key and returns 201", async () => {
     const res = await request(app)
       .post("/api/v1/projects")
@@ -66,6 +76,7 @@ describe("Phase 5 Enterprise Projects & Milestones REST API Endpoints", () => {
 
     expect(res.status).toBe(201);
     expect(res.body.success).toBe(true);
+    if (res.body.data?.id) createdProjectIds.push(res.body.data.id);
     expect(res.body.data.name).toBe("Phase 5 Core Cloud Infrastructure");
     expect(res.body.data.key).toMatch(/^PRJ-\d+$/);
     expect(res.body.data.priority).toBe("HIGH");
@@ -92,11 +103,12 @@ describe("Phase 5 Enterprise Projects & Milestones REST API Endpoints", () => {
       data: {
         workspaceId: testWorkspaceId,
         name: "Project Detail Inspection",
-        key: "PRJ-DET",
+        key: `PRJ-DET-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
         priority: "MEDIUM",
         status: "ACTIVE",
       },
     });
+    createdProjectIds.push(p.id);
 
     const res = await request(app)
       .get(`/api/v1/projects/${p.id}`)
@@ -120,6 +132,7 @@ describe("Phase 5 Enterprise Projects & Milestones REST API Endpoints", () => {
         status: "PLANNING",
       },
     });
+    createdProjectIds.push(p.id);
 
     const res = await request(app)
       .patch(`/api/v1/projects/${p.id}`)
@@ -148,6 +161,7 @@ describe("Phase 5 Enterprise Projects & Milestones REST API Endpoints", () => {
         status: "ACTIVE",
       },
     });
+    createdProjectIds.push(p.id);
 
     // Archive
     const archiveRes = await request(app)
@@ -185,6 +199,7 @@ describe("Phase 5 Enterprise Projects & Milestones REST API Endpoints", () => {
         status: "ACTIVE",
       },
     });
+    createdProjectIds.push(p.id);
 
     // Create tasks in different states
     await prisma.task.createMany({
@@ -219,6 +234,7 @@ describe("Phase 5 Enterprise Projects & Milestones REST API Endpoints", () => {
         name: "Team Collaboration Project",
       },
     });
+    createdProjectIds.push(p.id);
 
     // Add Member
     const addRes = await request(app)
@@ -264,6 +280,7 @@ describe("Phase 5 Enterprise Projects & Milestones REST API Endpoints", () => {
     const p = await prisma.project.create({
       data: { workspaceId: testWorkspaceId, name: "Project Milestones Parent" },
     });
+    createdProjectIds.push(p.id);
 
     const createRes = await request(app)
       .post(`/api/v1/projects/${p.id}/milestones`)
@@ -313,6 +330,7 @@ describe("Phase 5 Enterprise Projects & Milestones REST API Endpoints", () => {
         name: "Foreign Tenant Project",
       },
     });
+    createdProjectIds.push(foreignProject.id);
 
     const res = await request(app)
       .get(`/api/v1/projects/${foreignProject.id}`)

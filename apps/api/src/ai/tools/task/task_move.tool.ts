@@ -20,7 +20,7 @@ export class TaskMoveTool implements IAITool<z.infer<typeof TaskMoveInputSchema>
       taskId: { type: "string", description: "Unique task ID" },
       targetStatus: {
         type: "string",
-        enum: ["backlog", "todo", "in_progress", "review", "testing", "done"],
+        enum: ["backlog", "todo", "in_progress", "in_review", "review", "blocked", "testing", "done"],
         description: "Target stage",
       },
       reason: { type: "string", description: "Optional transition rationale" },
