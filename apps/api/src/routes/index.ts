@@ -8,6 +8,7 @@ import { milestonesRouter } from "../projects/routes/milestones.router";
 import { tasksRouter } from "../tasks/routes/tasks.router";
 import { dashboardRouter } from "../dashboard/routes/dashboard.router";
 import { searchRouter } from "../search/routes/search.router";
+import { financeRouter } from "../finance/routes/finance.router";
 
 export const v1Router = Router();
 
@@ -21,5 +22,6 @@ v1Router.use("/milestones", milestonesRouter);
 v1Router.use("/tasks", tasksRouter);
 v1Router.use("/dashboard", dashboardRouter);
 v1Router.use("/search", searchRouter);
+v1Router.use("/finance", financeRouter);
 
 

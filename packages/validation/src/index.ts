@@ -439,4 +439,149 @@ export const GlobalSearchQuerySchema = z.object({
   types: z.string().optional(),
 });
 
+// ── Phase 6 Finance Validation Schemas ─────────────────────────────────────
 
+export const CreateInvoiceLineItemSchema = z.object({
+  description: z.string().min(1, "Item description is required"),
+  quantity: z.number().positive("Quantity must be greater than zero").default(1),
+  unitPrice: z.number().min(0, "Unit price cannot be negative").default(0),
+  taxRate: z.number().min(0, "Tax rate cannot be negative").max(100).optional().default(0),
+  discountAmount: z.number().min(0, "Discount amount cannot be negative").optional().default(0),
+});
+
+export const CreateInvoiceSchema = z.object({
+  customerId: z.string().min(1, "Customer ID is required"),
+  projectId: z.string().optional().nullable(),
+  invoiceNumber: z.string().optional(),
+  issueDate: z.string().or(z.date()).optional(),
+  dueDate: z.string().or(z.date()).optional().default(() => new Date(Date.now() + 30 * 86400000).toISOString()),
+  currency: z.string().min(1).default("USD"),
+  notes: z.string().max(2000).optional().nullable(),
+  terms: z.string().max(1000).optional().nullable(),
+  items: z.array(CreateInvoiceLineItemSchema).min(1, "At least one line item is required"),
+});
+
+export const UpdateInvoiceSchema = z.object({
+  customerId: z.string().optional(),
+  projectId: z.string().optional().nullable(),
+  issueDate: z.string().or(z.date()).optional(),
+  dueDate: z.string().or(z.date()).optional(),
+  currency: z.string().optional(),
+  notes: z.string().max(2000).optional().nullable(),
+  terms: z.string().max(1000).optional().nullable(),
+  items: z.array(CreateInvoiceLineItemSchema).optional(),
+  status: z.enum(["draft", "sent", "partially_paid", "paid", "overdue", "cancelled"]).optional(),
+});
+
+export const InvoiceQuerySchema = z.object({
+  customerId: z.string().optional(),
+  projectId: z.string().optional(),
+  status: z.string().optional(),
+  currency: z.string().optional(),
+  startDate: z.string().optional(),
+  endDate: z.string().optional(),
+  search: z.string().optional(),
+  page: z.coerce.number().int().positive().optional().default(1),
+  limit: z.coerce.number().int().positive().max(100).optional().default(20),
+  sortBy: z.string().optional().default("createdAt"),
+  sortOrder: z.enum(["asc", "desc"]).optional().default("desc"),
+});
+
+export const CreatePaymentSchema = z.object({
+  invoiceId: z.string().min(1, "Invoice ID is required"),
+  amount: z.number().positive("Payment amount must be greater than zero"),
+  currency: z.string().min(1).optional(),
+  paymentDate: z.string().or(z.date()).optional(),
+  paymentMethod: z.string().min(1).default("bank_transfer"),
+  reference: z.string().max(255).optional().nullable(),
+  notes: z.string().max(2000).optional().nullable(),
+});
+
+export const PaymentQuerySchema = z.object({
+  invoiceId: z.string().optional(),
+  customerId: z.string().optional(),
+  startDate: z.string().optional(),
+  endDate: z.string().optional(),
+  page: z.coerce.number().int().positive().optional().default(1),
+  limit: z.coerce.number().int().positive().max(100).optional().default(20),
+});
+
+export const CreateExpenseCategorySchema = z.object({
+  name: z.string().min(1, "Category name is required").max(100),
+  description: z.string().max(500).optional().nullable(),
+  isActive: z.boolean().optional().default(true),
+});
+
+export const UpdateExpenseCategorySchema = z.object({
+  name: z.string().min(1).max(100).optional(),
+  description: z.string().max(500).optional().nullable(),
+  isActive: z.boolean().optional(),
+});
+
+export const CreateExpenseSchema = z.object({
+  vendor: z.string().min(1, "Vendor name is required").max(255),
+  description: z.string().min(1, "Description is required").max(1000),
+  amount: z.number().positive("Amount must be greater than zero"),
+  currency: z.string().min(1).default("USD"),
+  expenseDate: z.string().or(z.date()).optional(),
+  categoryId: z.string().optional().nullable(),
+  categoryName: z.string().optional().nullable(),
+  projectId: z.string().optional().nullable(),
+  paymentMethod: z.string().optional().default("credit_card"),
+  receiptReference: z.string().max(255).optional().nullable(),
+  notes: z.string().max(2000).optional().nullable(),
+});
+
+export const UpdateExpenseSchema = z.object({
+  vendor: z.string().min(1).max(255).optional(),
+  description: z.string().min(1).max(1000).optional(),
+  amount: z.number().positive().optional(),
+  currency: z.string().optional(),
+  expenseDate: z.string().or(z.date()).optional(),
+  categoryId: z.string().optional().nullable(),
+  categoryName: z.string().optional().nullable(),
+  projectId: z.string().optional().nullable(),
+  paymentMethod: z.string().optional(),
+  receiptReference: z.string().max(255).optional().nullable(),
+  notes: z.string().max(2000).optional().nullable(),
+});
+
+export const ExpenseQuerySchema = z.object({
+  categoryId: z.string().optional(),
+  projectId: z.string().optional(),
+  vendor: z.string().optional(),
+  approvalStatus: z.enum(["pending", "approved", "rejected"]).optional(),
+  currency: z.string().optional(),
+  startDate: z.string().optional(),
+  endDate: z.string().optional(),
+  search: z.string().optional(),
+  page: z.coerce.number().int().positive().optional().default(1),
+  limit: z.coerce.number().int().positive().max(100).optional().default(20),
+  sortBy: z.string().optional().default("createdAt"),
+  sortOrder: z.enum(["asc", "desc"]).optional().default("desc"),
+});
+
+export const FinanceReportQuerySchema = z.object({
+  startDate: z.string().optional(),
+  endDate: z.string().optional(),
+  currency: z.string().optional(),
+  customerId: z.string().optional(),
+  projectId: z.string().optional(),
+  status: z.string().optional(),
+  category: z.string().optional(),
+});
+
+// CamelCase export aliases for flexible conventions
+export const createInvoiceSchema = CreateInvoiceSchema;
+export const updateInvoiceSchema = UpdateInvoiceSchema;
+export const invoiceQuerySchema = InvoiceQuerySchema;
+export const createPaymentSchema = CreatePaymentSchema;
+export const paymentQuerySchema = PaymentQuerySchema;
+export const createExpenseCategorySchema = CreateExpenseCategorySchema;
+export const updateExpenseCategorySchema = UpdateExpenseCategorySchema;
+export const createCategorySchema = CreateExpenseCategorySchema;
+export const updateCategorySchema = UpdateExpenseCategorySchema;
+export const createExpenseSchema = CreateExpenseSchema;
+export const updateExpenseSchema = UpdateExpenseSchema;
+export const expenseQuerySchema = ExpenseQuerySchema;
+export const financeReportQuerySchema = FinanceReportQuerySchema;

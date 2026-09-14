@@ -69,6 +69,14 @@ import { StaleDealsTool } from "./crm/stale_deals.tool";
 import { OverdueFollowupsTool } from "./crm/overdue_followups.tool";
 import { CRMActivityTool } from "./crm/crm_activity.tool";
 
+// Finance AI Tools
+import { FinanceDashboardTool } from "./finance/finance_dashboard.tool";
+import { FinanceInvoiceListTool } from "./finance/finance_invoice_list.tool";
+import { FinanceInvoiceGetTool } from "./finance/finance_invoice_get.tool";
+import { FinancePaymentListTool } from "./finance/finance_payment_list.tool";
+import { FinanceExpenseListTool } from "./finance/finance_expense_list.tool";
+import { FinanceReportTool } from "./finance/finance_report.tool";
+
 export class ToolRegistry {
   private static instance: ToolRegistry;
   private tools: Map<string, IAITool> = new Map();
@@ -154,6 +162,29 @@ export class ToolRegistry {
     this.registerTool(new StaleDealsTool());
     this.registerTool(new OverdueFollowupsTool());
     this.registerTool(new CRMActivityTool());
+
+    // Finance Production Tools
+    const finDashboard = new FinanceDashboardTool();
+    const finInvoiceList = new FinanceInvoiceListTool();
+    const finInvoiceGet = new FinanceInvoiceGetTool();
+    const finPaymentList = new FinancePaymentListTool();
+    const finExpenseList = new FinanceExpenseListTool();
+    const finReport = new FinanceReportTool();
+
+    this.registerTool(finDashboard);
+    this.registerTool(finInvoiceList);
+    this.registerTool(finInvoiceGet);
+    this.registerTool(finPaymentList);
+    this.registerTool(finExpenseList);
+    this.registerTool(finReport);
+
+    // Aliases for compatibility
+    this.tools.set("finance_dashboard", finDashboard);
+    this.tools.set("finance_invoice_list", finInvoiceList);
+    this.tools.set("finance_invoice_get", finInvoiceGet);
+    this.tools.set("finance_payment_list", finPaymentList);
+    this.tools.set("finance_expense_list", finExpenseList);
+    this.tools.set("finance_report", finReport);
   }
 
   public registerTool(tool: IAITool): void {

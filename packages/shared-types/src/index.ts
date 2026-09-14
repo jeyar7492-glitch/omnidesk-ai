@@ -847,7 +847,10 @@ export type SearchEntityType =
   | "lead"
   | "deal"
   | "milestone"
-  | "ai_execution";
+  | "ai_execution"
+  | "invoice"
+  | "payment"
+  | "expense";
 
 export interface SearchResultItem {
   id: string;
@@ -858,7 +861,7 @@ export interface SearchResultItem {
   badge?: string;
   metadata?: Record<string, unknown>;
   navigationTarget: {
-    tab: "dashboard" | "ai" | "projects" | "tasks" | "crm" | "system";
+    tab: "dashboard" | "ai" | "projects" | "tasks" | "crm" | "system" | "finance";
     entityId?: string;
   };
 }
@@ -872,8 +875,275 @@ export interface GlobalSearchResponse {
     crm: SearchResultItem[];
     milestones: SearchResultItem[];
     ai: SearchResultItem[];
+    finance?: SearchResultItem[];
   };
 }
 
+// ── Phase 6 Finance Domain Contracts ──────────────────────────────────────
 
+export type InvoiceStatus =
+  | "draft"
+  | "sent"
+  | "partially_paid"
+  | "paid"
+  | "overdue"
+  | "cancelled";
 
+export type ExpenseApprovalStatus = "pending" | "approved" | "rejected";
+
+export interface InvoiceLineItemSummary {
+  id: string;
+  invoiceId: string;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  taxRate: number;
+  discountAmount: number;
+  lineTotal: number;
+  position: number;
+}
+
+export interface InvoiceSummary {
+  id: string;
+  workspaceId: string;
+  customerId: string;
+  customerName?: string;
+  projectId?: string | null;
+  projectName?: string | null;
+  invoiceNumber: string;
+  status: InvoiceStatus;
+  currency: string;
+  issueDate: string;
+  dueDate: string;
+  subtotal: number;
+  discountAmount: number;
+  taxRate: number;
+  taxAmount: number;
+  totalAmount: number;
+  amountPaid: number;
+  amountDue: number;
+  notes?: string | null;
+  terms?: string | null;
+  isArchived: boolean;
+  createdBy?: string | null;
+  itemCount?: number;
+  paymentCount?: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface InvoiceDetail extends InvoiceSummary {
+  items: InvoiceLineItemSummary[];
+  payments: PaymentSummary[];
+}
+
+export interface PaymentSummary {
+  id: string;
+  workspaceId: string;
+  invoiceId: string;
+  invoiceNumber?: string;
+  customerId?: string | null;
+  customerName?: string | null;
+  amount: number;
+  currency: string;
+  paymentDate: string;
+  paymentMethod: string;
+  reference?: string | null;
+  notes?: string | null;
+  createdBy?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ExpenseCategorySummary {
+  id: string;
+  workspaceId: string;
+  name: string;
+  description?: string | null;
+  isActive: boolean;
+  expenseCount?: number;
+  totalAmount?: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ExpenseSummary {
+  id: string;
+  workspaceId: string;
+  projectId?: string | null;
+  projectName?: string | null;
+  categoryId?: string | null;
+  categoryName?: string | null;
+  vendor: string;
+  description: string;
+  amount: number;
+  currency: string;
+  expenseDate: string;
+  paymentMethod: string;
+  approvalStatus: ExpenseApprovalStatus;
+  receiptReference?: string | null;
+  notes?: string | null;
+  createdBy?: string | null;
+  approvedBy?: string | null;
+  approvedAt?: string | null;
+  isArchived: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface FinanceDashboardStats {
+  currency: string;
+  totalRevenue: number;
+  paidRevenue: number;
+  outstandingReceivables: number;
+  overdueReceivables: number;
+  totalExpenses: number;
+  netIncome: number;
+  invoiceCount: number;
+  paidInvoiceCount: number;
+  overdueInvoiceCount: number;
+  pendingExpenseCount: number;
+  trends: {
+    dates: string[];
+    revenue: number[];
+    expenses: number[];
+    net: number[];
+  };
+  recentPayments: PaymentSummary[];
+  overdueInvoices: InvoiceSummary[];
+  upcomingDueInvoices: InvoiceSummary[];
+  recentExpenses: ExpenseSummary[];
+  currencyBreakdown?: Array<{
+    currency: string;
+    totalRevenue: number;
+    paidRevenue: number;
+    outstanding: number;
+    expenses: number;
+    netIncome: number;
+  }>;
+}
+
+export interface CustomerFinanceSummary {
+  customerId: string;
+  companyName: string;
+  totalInvoiced: number;
+  totalPaid: number;
+  outstandingBalance: number;
+  invoiceCount: number;
+  lastPaymentDate?: string | null;
+}
+
+export interface ProjectFinanceSummary {
+  projectId: string;
+  projectName: string;
+  projectKey?: string | null;
+  budget: number;
+  spent: number;
+  projectRevenue: number;
+  projectExpenses: number;
+  projectNet: number;
+  outstandingInvoices: number;
+}
+
+export interface FinanceRevenueReport {
+  currency: string;
+  totalInvoiced: number;
+  totalPaid: number;
+  totalOutstanding: number;
+  periodBreakdown: Array<{
+    period: string; // e.g. "2026-09"
+    invoiced: number;
+    paid: number;
+    invoiceCount: number;
+  }>;
+}
+
+export interface FinanceExpenseReport {
+  currency: string;
+  totalExpenses: number;
+  approvedExpenses: number;
+  pendingExpenses: number;
+  byCategory: Array<{
+    category: string;
+    amount: number;
+    percentage: number;
+    count: number;
+  }>;
+  byVendor: Array<{
+    vendor: string;
+    amount: number;
+    count: number;
+  }>;
+}
+
+export interface FinanceProfitLossReport {
+  currency: string;
+  revenue: number;
+  expenses: number;
+  netProfit: number;
+  profitMarginPercent: number;
+  monthlyBreakdown: Array<{
+    month: string;
+    revenue: number;
+    expenses: number;
+    net: number;
+  }>;
+}
+
+export interface FinanceReceivablesReport {
+  currency: string;
+  totalReceivables: number;
+  current0To30Days: number;
+  overdue31To60Days: number;
+  overdue61To90Days: number;
+  overdue90PlusDays: number;
+  invoices: Array<{
+    invoiceId: string;
+    invoiceNumber: string;
+    customerName: string;
+    dueDate: string;
+    daysOverdue: number;
+    totalAmount: number;
+    amountDue: number;
+    status: string;
+  }>;
+}
+
+export interface FinanceOverdueReport {
+  currency: string;
+  totalOverdueAmount: number;
+  overdueInvoiceCount: number;
+  invoices: Array<{
+    invoiceId: string;
+    invoiceNumber: string;
+    customerId: string;
+    customerName: string;
+    dueDate: string;
+    daysOverdue: number;
+    amountDue: number;
+  }>;
+}
+
+export interface CustomerRevenueReport {
+  currency: string;
+  customers: Array<{
+    customerId: string;
+    customerName: string;
+    totalRevenue: number;
+    invoiceCount: number;
+    outstandingBalance: number;
+  }>;
+}
+
+export interface ProjectProfitabilityReport {
+  currency: string;
+  projects: Array<{
+    projectId: string;
+    projectName: string;
+    projectKey?: string | null;
+    revenue: number;
+    expenses: number;
+    profit: number;
+    marginPercent: number;
+  }>;
+}

@@ -7,6 +7,7 @@ import { AIAssistant } from "./components/ai/AIAssistant";
 import { ProjectsView } from "./components/projects/ProjectsView";
 import { TasksView } from "./components/tasks/TasksView";
 import { CRMView } from "./components/crm/CRMView";
+import { FinanceView } from "./components/finance/FinanceView";
 import { SystemView } from "./components/system/SystemView";
 import { LoginView } from "./components/auth/LoginView";
 import { GlobalSearchModal } from "./components/search/GlobalSearchModal";
@@ -23,6 +24,7 @@ function WorkspaceApp(): React.ReactElement {
     projects: "Projects & Milestone Roadmaps",
     tasks: "Task Execution & Team Capacity",
     crm: "CRM Deals & Sales Pipeline",
+    finance: "Enterprise Finance & Invoicing",
     system: "System Telemetry & Architecture",
   };
 
@@ -95,6 +97,7 @@ function WorkspaceApp(): React.ReactElement {
         {activeTab === "projects" && <ProjectsView />}
         {activeTab === "tasks" && <TasksView />}
         {activeTab === "crm" && <CRMView />}
+        {activeTab === "finance" && <FinanceView />}
         {activeTab === "system" && <SystemView />}
       </div>
 

@@ -11,12 +11,13 @@ import {
   Bot,
   ArrowRight,
   Loader2,
+  Receipt,
 } from "lucide-react";
 
 interface GlobalSearchModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onNavigate: (tab: "dashboard" | "ai" | "projects" | "tasks" | "crm" | "system", entityId?: string) => void;
+  onNavigate: (tab: "dashboard" | "ai" | "projects" | "tasks" | "crm" | "system" | "finance", entityId?: string) => void;
 }
 
 export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
@@ -40,6 +41,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
       ...(groups.crm || []),
       ...(groups.milestones || []),
       ...(groups.ai || []),
+      ...(groups.finance || []),
     ];
   }, [results]);
 
@@ -134,6 +136,10 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
         return <Milestone size={15} color="var(--accent-amber)" />;
       case "ai_execution":
         return <Bot size={15} color="#c084fc" />;
+      case "invoice":
+      case "payment":
+      case "expense":
+        return <Receipt size={15} color="#38bdf8" />;
       default:
         return <Search size={15} color="var(--text-muted)" />;
     }
@@ -430,6 +436,47 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                         </div>
                         <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
                           <span style={{ fontSize: "0.7rem", color: "#c084fc", background: "var(--bg-elevated)", padding: "0.15rem 0.4rem", borderRadius: "4px" }}>{item.status || "AI"}</span>
+                          <ArrowRight size={12} color="var(--text-muted)" />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Group: Finance */}
+              {results?.resultsByGroup.finance && results.resultsByGroup.finance.length > 0 && (
+                <div>
+                  <div style={{ fontSize: "0.7rem", fontWeight: 700, textTransform: "uppercase", color: "var(--text-muted)", padding: "0.25rem 0.5rem", letterSpacing: "0.05em" }}>
+                    Finance ({results.resultsByGroup.finance.length})
+                  </div>
+                  {results.resultsByGroup.finance.map((item) => {
+                    const globalIdx = flattenedItems.findIndex((x) => x.id === item.id);
+                    const isSelected = globalIdx === selectedIndex;
+                    return (
+                      <div
+                        key={item.id}
+                        onClick={() => handleSelect(item)}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          padding: "0.6rem 0.75rem",
+                          borderRadius: "8px",
+                          cursor: "pointer",
+                          background: isSelected ? "rgba(56, 189, 248, 0.15)" : "transparent",
+                          border: isSelected ? "1px solid #38bdf8" : "1px solid transparent",
+                        }}
+                      >
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+                          {getEntityIcon(item.entityType)}
+                          <div>
+                            <div style={{ fontWeight: 600, fontSize: "0.85rem", color: "var(--text-primary)" }}>{item.title}</div>
+                            {item.subtitle && <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>{item.subtitle}</div>}
+                          </div>
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                          <span style={{ fontSize: "0.7rem", color: "#38bdf8", background: "var(--bg-elevated)", padding: "0.15rem 0.4rem", borderRadius: "4px" }}>{item.badge || item.status || "Finance"}</span>
                           <ArrowRight size={12} color="var(--text-muted)" />
                         </div>
                       </div>

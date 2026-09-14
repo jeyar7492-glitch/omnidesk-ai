@@ -27,6 +27,21 @@ import {
   DealDetail,
   CRMActivitySummary,
   PaginatedResponse,
+  InvoiceSummary,
+  InvoiceDetail,
+  PaymentSummary,
+  ExpenseCategorySummary,
+  ExpenseSummary,
+  FinanceDashboardStats,
+  FinanceRevenueReport,
+  FinanceExpenseReport,
+  FinanceProfitLossReport,
+  FinanceReceivablesReport,
+  FinanceOverdueReport,
+  CustomerRevenueReport,
+  ProjectProfitabilityReport,
+  CustomerFinanceSummary,
+  ProjectFinanceSummary,
 } from "@omnidesk/shared-types";
 
 
@@ -89,6 +104,10 @@ export class ApiClient {
       "ai:execute",
       "ai:approve",
       "ai:admin",
+      "finance:read",
+      "finance:write",
+      "finance:approve",
+      "finance:delete",
       "system:admin",
     ],
   };
@@ -1044,6 +1063,269 @@ export class ApiClient {
     return this.request<{ message: string }>(`/crm/activities/${id}`, {
       method: "DELETE",
     });
+  }
+
+  // ── Finance Module Endpoints ─────────────────────────────────────────────
+  public async getFinanceDashboard(query?: {
+    currency?: string;
+    startDate?: string;
+    endDate?: string;
+  }): Promise<FinanceDashboardStats> {
+    return this.request<FinanceDashboardStats>(`/finance/dashboard${this.toQueryString(query)}`);
+  }
+
+  // Invoices
+  public async getInvoices(filter?: any): Promise<InvoiceSummary[]> {
+    const res = await this.request<any>(`/finance/invoices${this.toQueryString(filter)}`);
+    return Array.isArray(res) ? res : res.items || [];
+  }
+
+  public async getInvoicesPaginated(filter?: any): Promise<PaginatedResponse<InvoiceSummary>> {
+    const res = await this.requestWithMeta<InvoiceSummary[]>(`/finance/invoices${this.toQueryString(filter)}`);
+    return {
+      items: Array.isArray(res.data) ? res.data : [],
+      total: res.meta?.total ?? (Array.isArray(res.data) ? res.data.length : 0),
+      page: res.meta?.page ?? 1,
+      limit: res.meta?.limit ?? 20,
+      totalPages: res.meta?.totalPages ?? 1,
+    };
+  }
+
+  public async getInvoice(id: string): Promise<InvoiceDetail> {
+    return this.request<InvoiceDetail>(`/finance/invoices/${id}`);
+  }
+
+  public async createInvoice(input: {
+    customerId: string;
+    projectId?: string | null;
+    invoiceNumber?: string;
+    issueDate?: string;
+    dueDate: string;
+    currency?: string;
+    notes?: string | null;
+    terms?: string | null;
+    items: Array<{
+      description: string;
+      quantity: number;
+      unitPrice: number;
+      taxRate?: number;
+      discountAmount?: number;
+    }>;
+  }): Promise<InvoiceDetail> {
+    return this.request<InvoiceDetail>("/finance/invoices", {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+  }
+
+  public async updateInvoice(id: string, input: any): Promise<InvoiceDetail> {
+    return this.request<InvoiceDetail>(`/finance/invoices/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(input),
+    });
+  }
+
+  public async sendInvoice(id: string): Promise<InvoiceDetail> {
+    return this.request<InvoiceDetail>(`/finance/invoices/${id}/send`, {
+      method: "POST",
+    });
+  }
+
+  public async cancelInvoice(id: string): Promise<InvoiceDetail> {
+    return this.request<InvoiceDetail>(`/finance/invoices/${id}/cancel`, {
+      method: "POST",
+    });
+  }
+
+  public async archiveInvoice(id: string): Promise<InvoiceDetail> {
+    return this.request<InvoiceDetail>(`/finance/invoices/${id}/archive`, {
+      method: "POST",
+    });
+  }
+
+  // Payments
+  public async getPayments(filter?: any): Promise<PaymentSummary[]> {
+    const res = await this.request<any>(`/finance/payments${this.toQueryString(filter)}`);
+    return Array.isArray(res) ? res : res.items || [];
+  }
+
+  public async getPaymentsPaginated(filter?: any): Promise<PaginatedResponse<PaymentSummary>> {
+    const res = await this.requestWithMeta<PaymentSummary[]>(`/finance/payments${this.toQueryString(filter)}`);
+    return {
+      items: Array.isArray(res.data) ? res.data : [],
+      total: res.meta?.total ?? (Array.isArray(res.data) ? res.data.length : 0),
+      page: res.meta?.page ?? 1,
+      limit: res.meta?.limit ?? 20,
+      totalPages: res.meta?.totalPages ?? 1,
+    };
+  }
+
+  public async getPayment(id: string): Promise<PaymentSummary> {
+    return this.request<PaymentSummary>(`/finance/payments/${id}`);
+  }
+
+  public async createPayment(input: {
+    invoiceId: string;
+    amount: number;
+    currency?: string;
+    paymentDate?: string;
+    paymentMethod?: string;
+    reference?: string | null;
+    notes?: string | null;
+  }): Promise<{ payment: PaymentSummary; invoice: InvoiceSummary }> {
+    return this.request<{ payment: PaymentSummary; invoice: InvoiceSummary }>("/finance/payments", {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+  }
+
+  public async recordPayment(input: {
+    invoiceId: string;
+    amount: number;
+    currency?: string;
+    paymentDate?: string;
+    paymentMethod?: string;
+    reference?: string | null;
+    notes?: string | null;
+  }): Promise<{ payment: PaymentSummary; invoice: InvoiceSummary }> {
+    return this.createPayment(input);
+  }
+
+  // Expense Categories
+  public async getExpenseCategories(): Promise<ExpenseCategorySummary[]> {
+    const res = await this.request<any>("/finance/categories");
+    return Array.isArray(res) ? res : [];
+  }
+
+  public async createExpenseCategory(input: {
+    name: string;
+    description?: string | null;
+    isActive?: boolean;
+  }): Promise<ExpenseCategorySummary> {
+    return this.request<ExpenseCategorySummary>("/finance/categories", {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+  }
+
+  public async updateExpenseCategory(id: string, input: any): Promise<ExpenseCategorySummary> {
+    return this.request<ExpenseCategorySummary>(`/finance/categories/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(input),
+    });
+  }
+
+  public async deleteExpenseCategory(id: string): Promise<any> {
+    return this.request<any>(`/finance/categories/${id}`, {
+      method: "DELETE",
+    });
+  }
+
+  // Expenses
+  public async getExpenses(filter?: any): Promise<ExpenseSummary[]> {
+    const res = await this.request<any>(`/finance/expenses${this.toQueryString(filter)}`);
+    return Array.isArray(res) ? res : res.items || [];
+  }
+
+  public async getExpensesPaginated(filter?: any): Promise<PaginatedResponse<ExpenseSummary>> {
+    const res = await this.requestWithMeta<ExpenseSummary[]>(`/finance/expenses${this.toQueryString(filter)}`);
+    return {
+      items: Array.isArray(res.data) ? res.data : [],
+      total: res.meta?.total ?? (Array.isArray(res.data) ? res.data.length : 0),
+      page: res.meta?.page ?? 1,
+      limit: res.meta?.limit ?? 20,
+      totalPages: res.meta?.totalPages ?? 1,
+    };
+  }
+
+  public async getExpense(id: string): Promise<ExpenseSummary> {
+    return this.request<ExpenseSummary>(`/finance/expenses/${id}`);
+  }
+
+  public async createExpense(input: {
+    vendor: string;
+    description: string;
+    amount: number;
+    currency?: string;
+    expenseDate?: string;
+    categoryId?: string | null;
+    projectId?: string | null;
+    paymentMethod?: string;
+    receiptReference?: string | null;
+    notes?: string | null;
+  }): Promise<ExpenseSummary> {
+    return this.request<ExpenseSummary>("/finance/expenses", {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+  }
+
+  public async updateExpense(id: string, input: any): Promise<ExpenseSummary> {
+    return this.request<ExpenseSummary>(`/finance/expenses/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(input),
+    });
+  }
+
+  public async approveExpense(id: string): Promise<ExpenseSummary> {
+    return this.request<ExpenseSummary>(`/finance/expenses/${id}/approve`, {
+      method: "POST",
+    });
+  }
+
+  public async rejectExpense(id: string): Promise<ExpenseSummary> {
+    return this.request<ExpenseSummary>(`/finance/expenses/${id}/reject`, {
+      method: "POST",
+    });
+  }
+
+  public async archiveExpense(id: string): Promise<ExpenseSummary> {
+    return this.request<ExpenseSummary>(`/finance/expenses/${id}/archive`, {
+      method: "POST",
+    });
+  }
+
+  // CRM & Project Summaries
+  public async getCustomerFinanceSummary(customerId: string): Promise<CustomerFinanceSummary> {
+    return this.request<CustomerFinanceSummary>(`/finance/customers/${customerId}/summary`);
+  }
+
+  public async getProjectFinanceSummary(projectId: string): Promise<ProjectFinanceSummary> {
+    return this.request<ProjectFinanceSummary>(`/finance/projects/${projectId}/summary`);
+  }
+
+  // Financial Reports
+  public async getRevenueReport(query?: any): Promise<FinanceRevenueReport> {
+    return this.request<FinanceRevenueReport>(`/finance/reports/revenue${this.toQueryString(query)}`);
+  }
+
+  public async getExpenseReport(query?: any): Promise<FinanceExpenseReport> {
+    return this.request<FinanceExpenseReport>(`/finance/reports/expenses${this.toQueryString(query)}`);
+  }
+
+  public async getProfitLossReport(query?: any): Promise<FinanceProfitLossReport> {
+    return this.request<FinanceProfitLossReport>(`/finance/reports/profit-loss${this.toQueryString(query)}`);
+  }
+
+  public async getReceivablesReport(query?: any): Promise<FinanceReceivablesReport> {
+    return this.request<FinanceReceivablesReport>(`/finance/reports/receivables${this.toQueryString(query)}`);
+  }
+
+  public async getOverdueReport(query?: any): Promise<FinanceOverdueReport> {
+    return this.request<FinanceOverdueReport>(`/finance/reports/overdue${this.toQueryString(query)}`);
+  }
+
+  public async getCustomerRevenueReport(query?: any): Promise<CustomerRevenueReport> {
+    return this.request<CustomerRevenueReport>(`/finance/reports/customer-revenue${this.toQueryString(query)}`);
+  }
+
+  public async getProjectProfitabilityReport(query?: any): Promise<ProjectProfitabilityReport> {
+    return this.request<ProjectProfitabilityReport>(`/finance/reports/project-profitability${this.toQueryString(query)}`);
+  }
+
+  public async getFinancialReport(type: string, query?: any): Promise<any> {
+    const cleanType = type.replace(/_/g, "-");
+    return this.request<any>(`/finance/reports/${cleanType}${this.toQueryString(query)}`);
   }
 
   // ── Dashboard Endpoints ──────────────────────────────────────────────────

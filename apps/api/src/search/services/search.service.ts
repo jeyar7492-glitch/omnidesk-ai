@@ -22,6 +22,7 @@ export class SearchService {
           crm: [],
           milestones: [],
           ai: [],
+          finance: [],
         },
       };
     }
@@ -38,6 +39,9 @@ export class SearchService {
       deals,
       milestones,
       aiExecutions,
+      invoices,
+      payments,
+      expenses,
     ] = await Promise.all([
       // 1. Projects
       prisma.project.findMany({
@@ -196,6 +200,71 @@ export class SearchService {
         },
         take: perEntityLimit,
       }),
+
+      // 9. Invoices
+      prisma.invoice.findMany({
+        where: {
+          workspaceId,
+          isArchived: false,
+          OR: [
+            { invoiceNumber: { contains: trimmedQuery, mode: "insensitive" } },
+            { notes: { contains: trimmedQuery, mode: "insensitive" } },
+            { customer: { companyName: { contains: trimmedQuery, mode: "insensitive" } } },
+          ],
+        },
+        select: {
+          id: true,
+          invoiceNumber: true,
+          totalAmount: true,
+          currency: true,
+          status: true,
+          dueDate: true,
+          customer: { select: { companyName: true } },
+        },
+        take: perEntityLimit,
+      }),
+
+      // 10. Payments
+      prisma.payment.findMany({
+        where: {
+          workspaceId,
+          OR: [
+            { reference: { contains: trimmedQuery, mode: "insensitive" } },
+            { notes: { contains: trimmedQuery, mode: "insensitive" } },
+          ],
+        },
+        select: {
+          id: true,
+          amount: true,
+          currency: true,
+          reference: true,
+          paymentMethod: true,
+          invoice: { select: { invoiceNumber: true } },
+        },
+        take: perEntityLimit,
+      }),
+
+      // 11. Expenses
+      prisma.expense.findMany({
+        where: {
+          workspaceId,
+          isArchived: false,
+          OR: [
+            { vendor: { contains: trimmedQuery, mode: "insensitive" } },
+            { description: { contains: trimmedQuery, mode: "insensitive" } },
+          ],
+        },
+        select: {
+          id: true,
+          vendor: true,
+          description: true,
+          amount: true,
+          currency: true,
+          approvalStatus: true,
+          categoryName: true,
+        },
+        take: perEntityLimit,
+      }),
     ]);
 
     // Format Projects
@@ -304,6 +373,44 @@ export class SearchService {
       },
     }));
 
+    // Format Finance Entities (Invoices, Payments, Expenses)
+    const financeResults: SearchResultItem[] = [
+      ...invoices.map((inv: any) => ({
+        id: inv.id,
+        entityType: "invoice" as const,
+        title: inv.invoiceNumber,
+        subtitle: `${inv.currency} ${inv.totalAmount.toLocaleString()} • ${inv.customer?.companyName || "Customer"}`,
+        status: inv.status,
+        badge: "Invoice",
+        navigationTarget: {
+          tab: "finance" as const,
+          entityId: inv.id,
+        },
+      })),
+      ...payments.map((p: any) => ({
+        id: p.id,
+        entityType: "payment" as const,
+        title: `Payment: ${p.reference || p.id.slice(-6)}`,
+        subtitle: `${p.currency} ${p.amount.toLocaleString()} • Inv: ${p.invoice?.invoiceNumber || ""}`,
+        badge: "Payment",
+        navigationTarget: {
+          tab: "finance" as const,
+          entityId: p.id,
+        },
+      })),
+      ...expenses.map((e: any) => ({
+        id: e.id,
+        entityType: "expense" as const,
+        title: `${e.vendor}: ${e.description.length > 40 ? e.description.slice(0, 40) + "..." : e.description}`,
+        subtitle: `${e.currency} ${e.amount.toLocaleString()} • ${e.categoryName || "General"}`,
+        status: e.approvalStatus,
+        badge: "Expense",
+        navigationTarget: {
+          tab: "finance" as const,
+          entityId: e.id,
+        },
+      })),
+    ];
 
     // Apply limits per group
     const slicedProjects = projectResults.slice(0, limit);
@@ -311,13 +418,15 @@ export class SearchService {
     const slicedCrm = crmResults.slice(0, limit);
     const slicedMilestones = milestoneResults.slice(0, limit);
     const slicedAi = aiResults.slice(0, limit);
+    const slicedFinance = financeResults.slice(0, limit);
 
     const totalResults =
       slicedProjects.length +
       slicedTasks.length +
       slicedCrm.length +
       slicedMilestones.length +
-      slicedAi.length;
+      slicedAi.length +
+      slicedFinance.length;
 
     return {
       query: trimmedQuery,
@@ -328,9 +437,11 @@ export class SearchService {
         crm: slicedCrm,
         milestones: slicedMilestones,
         ai: slicedAi,
+        finance: slicedFinance,
       },
     };
   }
 }
 
 export const searchService = new SearchService();
+

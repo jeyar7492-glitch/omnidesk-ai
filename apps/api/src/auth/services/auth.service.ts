@@ -43,10 +43,24 @@ export function getDefaultPermissionsForRole(role: string): string[] {
         "lead:write",
         "customer:read",
         "customer:write",
+        "finance:read",
+        "finance:write",
+        "finance:approve",
+        "finance:delete",
         "ai:execute",
         "ai:approve",
         "ai:admin",
         "system:admin",
+      ];
+    case "FINANCE":
+      return [
+        "workspace:read",
+        "customer:read",
+        "project:read",
+        "finance:read",
+        "finance:write",
+        "finance:approve",
+        "ai:execute",
       ];
     case "MANAGER":
       return [
@@ -68,6 +82,8 @@ export function getDefaultPermissionsForRole(role: string): string[] {
         "lead:write",
         "customer:read",
         "customer:write",
+        "finance:read",
+        "finance:write",
         "ai:execute",
       ];
     case "MEMBER":
@@ -82,6 +98,7 @@ export function getDefaultPermissionsForRole(role: string): string[] {
         "deal:read",
         "lead:read",
         "customer:read",
+        "finance:read",
         "ai:execute",
       ];
     case "VIEWER":
@@ -94,9 +111,10 @@ export function getDefaultPermissionsForRole(role: string): string[] {
         "deal:read",
         "lead:read",
         "customer:read",
+        "finance:read",
       ];
     default:
-      return ["workspace:read", "task:read", "project:read"];
+      return ["workspace:read", "task:read", "project:read", "finance:read"];
   }
 }
 

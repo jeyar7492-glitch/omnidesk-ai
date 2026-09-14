@@ -126,7 +126,9 @@ model Workspace {
   boards          Board[]
   tasks           Task[]
   invoices        Invoice[]
+  payments        Payment[]
   expenses        Expense[]
+  expenseCategories ExpenseCategory[]
   vendors         Vendor[]
   documents       Document[]
   channels        Channel[]
@@ -179,6 +181,7 @@ model Customer {
   deals          Deal[]
   projects       Project[]
   invoices       Invoice[]
+  payments       Payment[]
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 
@@ -323,6 +326,7 @@ model Project {
   boards      Board[]
   tasks       Task[]
   invoices    Invoice[]
+  expenses    Expense[]
   meetings    Meeting[]
   health      String          @default("healthy")
   isArchived  Boolean         @default(false)
@@ -495,82 +499,135 @@ model TaskComment {
 }
 
 model Invoice {
-  id             String        @id @default(auto()) @map("_id") @db.ObjectId
-  workspaceId    String        @db.ObjectId
-  workspace      Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  customerId     String        @db.ObjectId
-  customer       Customer      @relation(fields: [customerId], references: [id], onDelete: Restrict)
-  projectId      String?       @db.ObjectId
-  project        Project?      @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  invoiceNumber  String        @unique
-  status         InvoiceStatus @default(ISSUED)
-  currency       String        @default("USD")
-  issueDate      DateTime      @default(now())
+  id             String            @id @default(auto()) @map("_id") @db.ObjectId
+  workspaceId    String            @db.ObjectId
+  workspace      Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  customerId     String            @db.ObjectId
+  customer       Customer          @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  projectId      String?           @db.ObjectId
+  project        Project?          @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  invoiceNumber  String
+  status         String            @default("draft") // "draft" | "sent" | "partially_paid" | "paid" | "overdue" | "cancelled"
+  currency       String            @default("USD")
+  issueDate      DateTime          @default(now())
   dueDate        DateTime
-  subtotal       Float         @default(0.0)
-  discountAmount Float         @default(0.0)
-  taxRate        Float         @default(0.0)
-  taxAmount      Float         @default(0.0)
-  totalAmount    Float         @default(0.0)
-  paidAmount     Float         @default(0.0)
-  balanceDue     Float         @default(0.0)
+  subtotal       Float             @default(0.0)
+  discountAmount Float             @default(0.0)
+  taxRate        Float             @default(0.0)
+  taxAmount      Float             @default(0.0)
+  totalAmount    Float             @default(0.0)
+  amountPaid     Float             @default(0.0)
+  amountDue      Float             @default(0.0)
   notes          String?
-  terms          String?       @default("Net 30 Days")
-  items          InvoiceItem[]
+  terms          String?           @default("Net 30 Days")
+  isArchived     Boolean           @default(false)
+  createdBy      String?
+  createdById    String?           @db.ObjectId
+  items          InvoiceLineItem[]
   payments       Payment[]
-  createdById    String?       @db.ObjectId
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
 
+  @@unique([workspaceId, invoiceNumber])
+  @@index([workspaceId, customerId])
+  @@index([workspaceId, projectId])
   @@index([workspaceId, status])
+  @@index([workspaceId, dueDate])
+  @@index([workspaceId, isArchived])
+  @@index([workspaceId, createdAt])
 }
 
-model InvoiceItem {
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
-  invoiceId   String   @db.ObjectId
-  invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
-  description String
-  quantity    Float    @default(1.0)
-  unitPrice   Float    @default(0.0)
-  discount    Float    @default(0.0)
-  taxRate     Float    @default(0.0)
-  subtotal    Float    @default(0.0)
-  total       Float    @default(0.0)
+model InvoiceLineItem {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  invoiceId      String   @db.ObjectId
+  invoice        Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  description    String
+  quantity       Float    @default(1.0)
+  unitPrice      Float    @default(0.0)
+  taxRate        Float    @default(0.0)
+  discountAmount Float    @default(0.0)
+  lineTotal      Float    @default(0.0)
+  position       Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([invoiceId, position])
 }
 
 model Payment {
-  id              String    @id @default(auto()) @map("_id") @db.ObjectId
-  workspaceId     String    @db.ObjectId
-  invoiceId       String    @db.ObjectId
-  invoice         Invoice   @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
-  amount          Float
-  paymentDate     DateTime  @default(now())
-  paymentMethod   String    @default("bank_transfer")
-  referenceNumber String?
-  notes           String?
-  createdById     String?   @db.ObjectId
-  createdAt       DateTime  @default(now())
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  workspaceId   String    @db.ObjectId
+  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  invoiceId     String    @db.ObjectId
+  invoice       Invoice   @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  customerId    String?   @db.ObjectId
+  customer      Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  amount        Float
+  currency      String    @default("USD")
+  paymentDate   DateTime  @default(now())
+  paymentMethod String    @default("bank_transfer")
+  reference     String?
+  notes         String?
+  createdBy     String?
+  createdById   String?   @db.ObjectId
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   @@index([workspaceId, invoiceId])
+  @@index([workspaceId, customerId])
+  @@index([workspaceId, paymentDate])
 }
 
-model Expense {
+model ExpenseCategory {
   id          String    @id @default(auto()) @map("_id") @db.ObjectId
   workspaceId String    @db.ObjectId
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  vendorId    String?   @db.ObjectId
-  vendor      Vendor?   @relation(fields: [vendorId], references: [id], onDelete: SetNull)
-  description String
-  category    String    @default("General")
-  amount      Float
-  currency    String    @default("USD")
-  expenseDate DateTime  @default(now())
-  status      String    @default("paid")
-  createdById String?   @db.ObjectId
+  name        String
+  description String?
+  isActive    Boolean   @default(true)
+  expenses    Expense[]
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
-  @@index([workspaceId, category])
+  @@unique([workspaceId, name])
+  @@index([workspaceId, isActive])
+}
+
+model Expense {
+  id               String           @id @default(auto()) @map("_id") @db.ObjectId
+  workspaceId      String           @db.ObjectId
+  workspace        Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  projectId        String?          @db.ObjectId
+  project          Project?         @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  categoryId       String?          @db.ObjectId
+  category         ExpenseCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  categoryName     String?          @default("General")
+  vendorId         String?          @db.ObjectId
+  vendorRef        Vendor?          @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  vendor           String
+  description      String
+  amount           Float
+  currency         String           @default("USD")
+  expenseDate      DateTime         @default(now())
+  paymentMethod    String           @default("credit_card")
+  approvalStatus   String           @default("pending") // "pending" | "approved" | "rejected"
+  receiptReference String?
+  notes            String?
+  createdBy        String?
+  createdById      String?          @db.ObjectId
+  approvedBy       String?
+  approvedById     String?          @db.ObjectId
+  approvedAt       DateTime?
+  isArchived       Boolean          @default(false)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  @@index([workspaceId, projectId])
+  @@index([workspaceId, categoryId])
+  @@index([workspaceId, expenseDate])
+  @@index([workspaceId, approvalStatus])
+  @@index([workspaceId, isArchived])
+  @@index([workspaceId, createdAt])
 }
 
 model Vendor {

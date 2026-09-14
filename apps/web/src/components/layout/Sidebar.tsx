@@ -7,10 +7,11 @@ import {
   TrendingUp,
   Activity,
   Sparkles,
+  Receipt,
 } from "lucide-react";
 import { useWorkspace } from "../../context/WorkspaceContext";
 
-export type NavTab = "dashboard" | "ai" | "projects" | "tasks" | "crm" | "system";
+export type NavTab = "dashboard" | "ai" | "projects" | "tasks" | "crm" | "finance" | "system";
 
 interface SidebarProps {
   activeTab: NavTab;
@@ -19,7 +20,7 @@ interface SidebarProps {
 
 export const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange }) => {
   const { context } = useWorkspace();
-  const isPrivileged = context.userRole === "OWNER" || context.userRole === "ADMIN";
+  const isPrivileged = context.userRole === "OWNER" || context.userRole === "ADMIN" || context.userRole === "FINANCE";
 
   const allNavItems = [
     {
@@ -52,6 +53,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange }) => {
       label: "CRM & Pipeline",
       icon: TrendingUp,
       requiredPermission: "crm:read",
+    },
+    {
+      id: "finance" as NavTab,
+      label: "Finance & Invoicing",
+      icon: Receipt,
+      requiredPermission: "finance:read",
     },
     {
       id: "system" as NavTab,
