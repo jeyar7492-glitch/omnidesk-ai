@@ -82,6 +82,13 @@ import { KnowledgeSearchTool } from "./knowledge/knowledge_search.tool";
 import { KnowledgeGetDocumentTool } from "./knowledge/knowledge_get_document.tool";
 import { KnowledgeGetDocumentContextTool } from "./knowledge/knowledge_get_document_context.tool";
 
+// Notification AI Tools (Phase 8)
+import { NotificationListTool } from "./notification/notification_list.tool";
+import { NotificationUnreadCountTool } from "./notification/notification_unread_count.tool";
+import { NotificationGetTool } from "./notification/notification_get.tool";
+import { NotificationMarkReadTool } from "./notification/notification_mark_read.tool";
+import { NotificationMarkAllReadTool } from "./notification/notification_mark_all_read.tool";
+
 export class ToolRegistry {
   private static instance: ToolRegistry;
   private tools: Map<string, IAITool> = new Map();
@@ -203,6 +210,25 @@ export class ToolRegistry {
     this.tools.set("knowledge_search", knowSearch);
     this.tools.set("knowledge_get_document", knowGetDoc);
     this.tools.set("knowledge_get_document_context", knowGetContext);
+
+    // Notification Production Tools (Phase 8)
+    const notifList = new NotificationListTool();
+    const notifUnread = new NotificationUnreadCountTool();
+    const notifGet = new NotificationGetTool();
+    const notifMarkRead = new NotificationMarkReadTool();
+    const notifMarkAllRead = new NotificationMarkAllReadTool();
+
+    this.registerTool(notifList);
+    this.registerTool(notifUnread);
+    this.registerTool(notifGet);
+    this.registerTool(notifMarkRead);
+    this.registerTool(notifMarkAllRead);
+
+    this.tools.set("notification_list", notifList);
+    this.tools.set("notification_unread_count", notifUnread);
+    this.tools.set("notification_get", notifGet);
+    this.tools.set("notification_mark_read", notifMarkRead);
+    this.tools.set("notification_mark_all_read", notifMarkAllRead);
   }
 
   public registerTool(tool: IAITool): void {

@@ -14,6 +14,10 @@ import {
   knowledgeBaseRouter,
   knowledgeSearchRouter,
 } from "../documents/routes/document.router";
+import {
+  notificationRouter,
+  notificationPreferenceRouter,
+} from "../notifications/routes/notification.router";
 
 export const v1Router = Router();
 
@@ -31,3 +35,5 @@ v1Router.use("/finance", financeRouter);
 v1Router.use("/documents", documentRouter);
 v1Router.use("/knowledge-bases", knowledgeBaseRouter);
 v1Router.use("/knowledge", knowledgeSearchRouter);
+v1Router.use("/notifications", notificationRouter);
+v1Router.use("/notification-preferences", notificationPreferenceRouter);

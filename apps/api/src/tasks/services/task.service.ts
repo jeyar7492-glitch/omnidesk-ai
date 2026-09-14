@@ -3,6 +3,7 @@ import { prisma } from "../../lib/prisma";
 import { wsManager } from "../../lib/websocket";
 import { NotFoundError, ValidationError, ForbiddenError } from "../../lib/errors";
 import { resolveWorkspaceUser } from "../../lib/user_resolver";
+import { NotificationService } from "../../notifications/services/notification.service";
 
 function toValidObjectId(id?: string | null): string | undefined {
   return id && /^[0-9a-fA-F]{24}$/.test(id) ? id : undefined;
@@ -215,6 +216,23 @@ export class TaskService {
     };
     wsManager.broadcastToWorkspace(workspaceId, "task:created", eventPayload);
     wsManager.broadcastToWorkspace(workspaceId, "task.created", eventPayload);
+
+    if (task.assigneeId && task.assigneeId !== data.reporterId) {
+      NotificationService.getInstance()
+        .createNotification({
+          workspaceId,
+          recipientId: task.assigneeId,
+          type: "TASK_ASSIGNED",
+          title: `Assigned to task: ${task.title}`,
+          message: `You were assigned to task "${task.title}"`,
+          priority: task.priority === "URGENT" ? "URGENT" : "MEDIUM",
+          entityType: "task",
+          entityId: task.id,
+          actionUrl: `/tasks?selected=${task.id}`,
+          metadata: { taskId: task.id, taskTitle: task.title, projectId: task.projectId },
+        })
+        .catch(() => {});
+    }
 
     return task;
   }
@@ -557,6 +575,23 @@ export class TaskService {
     };
     wsManager.broadcastToWorkspace(workspaceId, "task:assigned", eventPayload);
     wsManager.broadcastToWorkspace(workspaceId, "task.assigned", eventPayload);
+
+    if (updated.assigneeId && updated.assigneeId !== userId) {
+      NotificationService.getInstance()
+        .createNotification({
+          workspaceId,
+          recipientId: updated.assigneeId,
+          type: "TASK_ASSIGNED",
+          title: `Assigned to task: ${updated.title}`,
+          message: `You were assigned to task "${updated.title}"`,
+          priority: updated.priority === "URGENT" ? "URGENT" : "MEDIUM",
+          entityType: "task",
+          entityId: updated.id,
+          actionUrl: `/tasks?selected=${updated.id}`,
+          metadata: { taskId: updated.id, taskTitle: updated.title, projectId: updated.projectId },
+        })
+        .catch(() => {});
+    }
 
     return updated;
   }
@@ -1334,6 +1369,23 @@ export class TaskService {
     };
     wsManager.broadcastToWorkspace(workspaceId, "task:commented", eventPayload);
     wsManager.broadcastToWorkspace(workspaceId, "task.comment.created", eventPayload);
+
+    if (task.assigneeId && task.assigneeId !== userId) {
+      NotificationService.getInstance()
+        .createNotification({
+          workspaceId,
+          recipientId: task.assigneeId,
+          type: "TASK_COMMENTED",
+          title: `New comment on: ${task.title}`,
+          message: `${authorName} commented: "${comment.content.slice(0, 100)}${comment.content.length > 100 ? "..." : ""}"`,
+          priority: "MEDIUM",
+          entityType: "task",
+          entityId: task.id,
+          actionUrl: `/tasks?selected=${task.id}`,
+          metadata: { taskId: task.id, commentId: comment.id, authorId: userId },
+        })
+        .catch(() => {});
+    }
 
     return {
       id: comment.id,

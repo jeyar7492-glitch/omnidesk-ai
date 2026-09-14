@@ -52,6 +52,9 @@ export function getDefaultPermissionsForRole(role: string): string[] {
         "documents:delete",
         "knowledgebase:read",
         "knowledgebase:write",
+        "notification:read",
+        "notification:write",
+        "notification:delete",
         "ai:execute",
         "ai:approve",
         "ai:admin",
@@ -67,6 +70,8 @@ export function getDefaultPermissionsForRole(role: string): string[] {
         "finance:approve",
         "documents:read",
         "knowledgebase:read",
+        "notification:read",
+        "notification:write",
         "ai:execute",
       ];
     case "MANAGER":
@@ -96,6 +101,9 @@ export function getDefaultPermissionsForRole(role: string): string[] {
         "documents:delete",
         "knowledgebase:read",
         "knowledgebase:write",
+        "notification:read",
+        "notification:write",
+        "notification:delete",
         "ai:execute",
       ];
     case "MEMBER":
@@ -115,6 +123,8 @@ export function getDefaultPermissionsForRole(role: string): string[] {
         "documents:write",
         "knowledgebase:read",
         "knowledgebase:write",
+        "notification:read",
+        "notification:write",
         "ai:execute",
       ];
     case "VIEWER":
@@ -130,9 +140,19 @@ export function getDefaultPermissionsForRole(role: string): string[] {
         "finance:read",
         "documents:read",
         "knowledgebase:read",
+        "notification:read",
+        "notification:write",
       ];
     default:
-      return ["workspace:read", "task:read", "project:read", "finance:read", "documents:read", "knowledgebase:read"];
+      return [
+        "workspace:read",
+        "task:read",
+        "project:read",
+        "finance:read",
+        "documents:read",
+        "knowledgebase:read",
+        "notification:read",
+      ];
   }
 }
 

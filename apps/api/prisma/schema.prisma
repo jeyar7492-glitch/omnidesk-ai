@@ -65,28 +65,66 @@ enum ApprovalStatus {
   EXPIRED
 }
 
+enum NotificationPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum NotificationType {
+  TASK_ASSIGNED
+  TASK_MENTIONED
+  TASK_DUE_SOON
+  TASK_OVERDUE
+  TASK_COMMENTED
+  PROJECT_UPDATED
+  PROJECT_MEMBER_ADDED
+  MILESTONE_DUE
+  LEAD_ASSIGNED
+  LEAD_STATUS_CHANGED
+  DEAL_STAGE_CHANGED
+  DEAL_WON
+  DEAL_LOST
+  INVOICE_CREATED
+  INVOICE_SENT
+  INVOICE_OVERDUE
+  PAYMENT_RECEIVED
+  EXPENSE_SUBMITTED
+  EXPENSE_APPROVED
+  EXPENSE_REJECTED
+  DOCUMENT_UPLOADED
+  DOCUMENT_PROCESSED
+  DOCUMENT_FAILED
+  KNOWLEDGE_BASE_UPDATED
+  SYSTEM_ALERT
+  SECURITY_ALERT
+}
+
 model User {
-  id               String            @id @default(auto()) @map("_id") @db.ObjectId
-  email            String            @unique
-  passwordHash     String
-  firstName        String
-  lastName         String
-  avatarUrl        String?
-  isActive         Boolean           @default(true)
-  isVerified       Boolean           @default(false)
-  lastLoginAt      DateTime?
-  memberships      WorkspaceMember[]
-  createdTasks     Task[]            @relation("TaskReporter")
-  assignedTasks      Task[]            @relation("TaskAssignee")
-  managedProjects    Project[]         @relation("ProjectManager")
-  projectMemberships ProjectMember[]   @relation("ProjectMemberUser")
-  taskComments       TaskComment[]
-  chatMessages       ChatMessage[]
-  auditEvents        AuditEvent[]
-  aiConversations    AIConversation[]
-  refreshTokens      RefreshToken[]
-  createdAt          DateTime          @default(now())
-  updatedAt          DateTime          @updatedAt
+  id                      String                   @id @default(auto()) @map("_id") @db.ObjectId
+  email                   String                   @unique
+  passwordHash            String
+  firstName               String
+  lastName                String
+  avatarUrl               String?
+  isActive                Boolean                  @default(true)
+  isVerified              Boolean                  @default(false)
+  lastLoginAt             DateTime?
+  memberships             WorkspaceMember[]
+  createdTasks            Task[]                   @relation("TaskReporter")
+  assignedTasks           Task[]                   @relation("TaskAssignee")
+  managedProjects         Project[]                @relation("ProjectManager")
+  projectMemberships      ProjectMember[]          @relation("ProjectMemberUser")
+  taskComments            TaskComment[]
+  chatMessages            ChatMessage[]
+  auditEvents             AuditEvent[]
+  aiConversations         AIConversation[]
+  notifications           Notification[]
+  notificationPreferences NotificationPreference[]
+  refreshTokens           RefreshToken[]
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime                 @updatedAt
 }
 
 model RefreshToken {
@@ -135,10 +173,11 @@ model Workspace {
   channels        Channel[]
   meetings        Meeting[]
   automations     AutomationRule[]
-  auditEvents     AuditEvent[]
-  notifications   Notification[]
-  aiConversations AIConversation[]
-  aiApprovals     AIApprovalRequest[]
+  auditEvents             AuditEvent[]
+  notifications           Notification[]
+  notificationPreferences NotificationPreference[]
+  aiConversations         AIConversation[]
+  aiApprovals             AIApprovalRequest[]
   aiExecutions    AIExecution[]
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
@@ -852,18 +891,68 @@ model AuditEvent {
 }
 
 model Notification {
-  id          String    @id @default(auto()) @map("_id") @db.ObjectId
-  workspaceId String    @db.ObjectId
-  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  userId      String    @db.ObjectId
+  id          String                 @id @default(auto()) @map("_id") @db.ObjectId
+  workspaceId String                 @db.ObjectId
+  workspace   Workspace              @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  userId      String                 @db.ObjectId
+  user        User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type        NotificationType       @default(SYSTEM_ALERT)
   title       String
   message     String
-  link        String?
-  isRead      Boolean   @default(false)
+  priority    NotificationPriority   @default(LOW)
+  entityType  String?
+  entityId    String?
+  actionUrl   String?
+  link        String?                // backwards-compatibility
+  metadata    Json?
+  isRead      Boolean                @default(false)
   readAt      DateTime?
-  createdAt   DateTime  @default(now())
+  isArchived  Boolean                @default(false)
+  archivedAt  DateTime?
+  deliveries  NotificationDelivery[]
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
 
+  @@index([workspaceId, userId, isRead])
+  @@index([workspaceId, userId, isArchived])
+  @@index([workspaceId, userId, createdAt])
+  @@index([workspaceId, type])
   @@index([userId, isRead])
+}
+
+model NotificationPreference {
+  id                String               @id @default(auto()) @map("_id") @db.ObjectId
+  workspaceId       String               @db.ObjectId
+  workspace         Workspace            @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  userId            String               @db.ObjectId
+  user              User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  inAppEnabled      Boolean              @default(true)
+  emailEnabled      Boolean              @default(false)
+  emailAddress      String?
+  tasksCategory     Boolean              @default(true)
+  projectsCategory  Boolean              @default(true)
+  crmCategory       Boolean              @default(true)
+  financeCategory   Boolean              @default(true)
+  documentsCategory Boolean              @default(true)
+  systemCategory    Boolean              @default(true)
+  minPriority       NotificationPriority @default(LOW)
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+
+  @@unique([workspaceId, userId])
+}
+
+model NotificationDelivery {
+  id             String       @id @default(auto()) @map("_id") @db.ObjectId
+  notificationId String       @db.ObjectId
+  notification   Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  channel        String       // "in_app" | "email"
+  status         String       @default("delivered") // "delivered" | "pending" | "failed" | "skipped"
+  error          String?
+  sentAt         DateTime?
+  createdAt      DateTime     @default(now())
+
+  @@index([notificationId, channel])
 }
 
 model AIConversation {

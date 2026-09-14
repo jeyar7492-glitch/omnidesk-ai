@@ -1285,3 +1285,130 @@ export interface RAGContext {
   formattedContext: string;
   retrievedAt: string;
 }
+
+// ── Phase 8: Enterprise Notification & Communication Infrastructure ──────────
+export type NotificationPriority = "LOW" | "MEDIUM" | "HIGH" | "URGENT";
+
+export type NotificationType =
+  | "TASK_ASSIGNED"
+  | "TASK_MENTIONED"
+  | "TASK_DUE_SOON"
+  | "TASK_OVERDUE"
+  | "TASK_COMMENTED"
+  | "PROJECT_UPDATED"
+  | "PROJECT_MEMBER_ADDED"
+  | "MILESTONE_DUE"
+  | "LEAD_ASSIGNED"
+  | "LEAD_STATUS_CHANGED"
+  | "DEAL_STAGE_CHANGED"
+  | "DEAL_WON"
+  | "DEAL_LOST"
+  | "INVOICE_CREATED"
+  | "INVOICE_SENT"
+  | "INVOICE_OVERDUE"
+  | "PAYMENT_RECEIVED"
+  | "EXPENSE_SUBMITTED"
+  | "EXPENSE_APPROVED"
+  | "EXPENSE_REJECTED"
+  | "DOCUMENT_UPLOADED"
+  | "DOCUMENT_PROCESSED"
+  | "DOCUMENT_FAILED"
+  | "KNOWLEDGE_BASE_UPDATED"
+  | "SYSTEM_ALERT"
+  | "SECURITY_ALERT";
+
+export type NotificationDeliveryChannel = "in_app" | "email";
+export type NotificationDeliveryStatus = "delivered" | "pending" | "failed" | "skipped";
+
+export interface NotificationDeliverySummary {
+  id: string;
+  notificationId: string;
+  channel: NotificationDeliveryChannel;
+  status: NotificationDeliveryStatus;
+  error?: string | null;
+  sentAt?: string | null;
+  createdAt: string;
+}
+
+export interface NotificationSummary {
+  id: string;
+  workspaceId: string;
+  userId: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  priority: NotificationPriority;
+  entityType?: string | null;
+  entityId?: string | null;
+  actionUrl?: string | null;
+  metadata?: Record<string, unknown> | null;
+  isRead: boolean;
+  readAt?: string | null;
+  isArchived: boolean;
+  archivedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface NotificationDetail extends NotificationSummary {
+  deliveries?: NotificationDeliverySummary[];
+}
+
+export interface NotificationPreferenceSummary {
+  id: string;
+  workspaceId: string;
+  userId: string;
+  inAppEnabled: boolean;
+  emailEnabled: boolean;
+  emailAddress?: string | null;
+  tasksCategory: boolean;
+  projectsCategory: boolean;
+  crmCategory: boolean;
+  financeCategory: boolean;
+  documentsCategory: boolean;
+  systemCategory: boolean;
+  minPriority: NotificationPriority;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UpdateNotificationPreferenceInput {
+  inAppEnabled?: boolean;
+  emailEnabled?: boolean;
+  emailAddress?: string | null;
+  tasksCategory?: boolean;
+  projectsCategory?: boolean;
+  crmCategory?: boolean;
+  financeCategory?: boolean;
+  documentsCategory?: boolean;
+  systemCategory?: boolean;
+  minPriority?: NotificationPriority;
+}
+
+export interface NotificationQuery {
+  page?: number;
+  perPage?: number;
+  limit?: number;
+  isRead?: boolean;
+  unreadOnly?: boolean;
+  isArchived?: boolean;
+  includeArchived?: boolean;
+  type?: NotificationType;
+  priority?: NotificationPriority;
+  search?: string;
+}
+
+export interface NotificationListResponse {
+  notifications: NotificationSummary[];
+  total: number;
+  unreadCount: number;
+  page: number;
+  perPage: number;
+  totalPages: number;
+}
+
+export interface UnreadNotificationCountResponse {
+  unreadCount: number;
+  workspaceId: string;
+  userId: string;
+}

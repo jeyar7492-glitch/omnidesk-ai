@@ -2,6 +2,7 @@ import { DealStage, PriorityLevel, CRMDashboardMetrics } from "@omnidesk/shared-
 import { prisma } from "../../lib/prisma";
 import { wsManager } from "../../lib/websocket";
 import { NotFoundError, ValidationError } from "../../lib/errors";
+import { NotificationService } from "../../notifications/services/notification.service";
 
 export const VALID_DEAL_STAGES: DealStage[] = [
   "QUALIFICATION",
@@ -79,6 +80,23 @@ export class CRMService {
       customer: lead.customer?.companyName || null,
       createdAt: lead.createdAt.toISOString(),
     });
+
+    if (lead.assignedUserId && lead.assignedUserId !== userId) {
+      NotificationService.getInstance()
+        .createNotification({
+          workspaceId,
+          recipientId: lead.assignedUserId,
+          type: "LEAD_ASSIGNED",
+          title: `New lead assigned: ${lead.title}`,
+          message: `You were assigned to lead "${lead.title}"`,
+          priority: lead.priority === "URGENT" ? "URGENT" : "MEDIUM",
+          entityType: "lead",
+          entityId: lead.id,
+          actionUrl: `/crm?tab=leads&selected=${lead.id}`,
+          metadata: { leadId: lead.id, title: lead.title, dealValue: lead.dealValue },
+        })
+        .catch(() => {});
+    }
 
     return lead;
   }
@@ -263,6 +281,27 @@ export class CRMService {
       dealValue: updated.dealValue,
       updatedAt: updated.updatedAt.toISOString(),
     });
+
+    if (
+      data.assignedUserId &&
+      data.assignedUserId !== existing.assignedUserId &&
+      data.assignedUserId !== userId
+    ) {
+      NotificationService.getInstance()
+        .createNotification({
+          workspaceId,
+          recipientId: data.assignedUserId,
+          type: "LEAD_ASSIGNED",
+          title: `Lead assigned to you: ${updated.title}`,
+          message: `You were assigned to lead "${updated.title}"`,
+          priority: updated.priority === "URGENT" ? "URGENT" : "MEDIUM",
+          entityType: "lead",
+          entityId: updated.id,
+          actionUrl: `/crm?tab=leads&selected=${updated.id}`,
+          metadata: { leadId: updated.id, title: updated.title },
+        })
+        .catch(() => {});
+    }
 
     return updated;
   }
@@ -1292,6 +1331,37 @@ export class CRMService {
       dealId: updated.id,
       stage: targetStage,
     });
+
+    if (deal.assignedUserId && deal.assignedUserId !== userId) {
+      const isWon = targetStage === "WON";
+      const isLost = targetStage === "LOST";
+      const notifType = isWon ? "DEAL_WON" : isLost ? "DEAL_LOST" : "DEAL_STAGE_CHANGED";
+      const notifTitle = isWon
+        ? `Deal won: ${updated.title}!`
+        : isLost
+        ? `Deal lost: ${updated.title}`
+        : `Deal stage changed: ${updated.title}`;
+      const notifMessage = isWon
+        ? `Congratulations! Deal "${updated.title}" was marked as WON ($${updated.dealValue.toLocaleString()}).`
+        : isLost
+        ? `Deal "${updated.title}" was marked as LOST.${reason ? " Reason: " + reason : ""}`
+        : `Deal "${updated.title}" moved to stage ${targetStage}.`;
+
+      NotificationService.getInstance()
+        .createNotification({
+          workspaceId,
+          recipientId: deal.assignedUserId,
+          type: notifType,
+          title: notifTitle,
+          message: notifMessage,
+          priority: isWon ? "HIGH" : "MEDIUM",
+          entityType: "deal",
+          entityId: updated.id,
+          actionUrl: `/crm?tab=deals&selected=${updated.id}`,
+          metadata: { dealId: updated.id, title: updated.title, stage: targetStage, dealValue: updated.dealValue },
+        })
+        .catch(() => {});
+    }
 
     return updated;
   }

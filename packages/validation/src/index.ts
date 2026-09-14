@@ -675,3 +675,74 @@ export const updateKnowledgeBaseSchema = UpdateKnowledgeBaseSchema;
 export const knowledgeBaseQuerySchema = KnowledgeBaseQuerySchema;
 export const addDocumentToKBSchema = AddDocumentToKBSchema;
 export const knowledgeSearchQuerySchema = KnowledgeSearchQuerySchema;
+
+// ── Phase 8: Notification & Communication Schemas ────────────────────────────
+export const NotificationPriorityEnum = z.enum(["LOW", "MEDIUM", "HIGH", "URGENT"]);
+
+export const NotificationTypeEnum = z.enum([
+  "TASK_ASSIGNED",
+  "TASK_MENTIONED",
+  "TASK_DUE_SOON",
+  "TASK_OVERDUE",
+  "TASK_COMMENTED",
+  "PROJECT_UPDATED",
+  "PROJECT_MEMBER_ADDED",
+  "MILESTONE_DUE",
+  "LEAD_ASSIGNED",
+  "LEAD_STATUS_CHANGED",
+  "DEAL_STAGE_CHANGED",
+  "DEAL_WON",
+  "DEAL_LOST",
+  "INVOICE_CREATED",
+  "INVOICE_SENT",
+  "INVOICE_OVERDUE",
+  "PAYMENT_RECEIVED",
+  "EXPENSE_SUBMITTED",
+  "EXPENSE_APPROVED",
+  "EXPENSE_REJECTED",
+  "DOCUMENT_UPLOADED",
+  "DOCUMENT_PROCESSED",
+  "DOCUMENT_FAILED",
+  "KNOWLEDGE_BASE_UPDATED",
+  "SYSTEM_ALERT",
+  "SECURITY_ALERT",
+]);
+
+export const NotificationQuerySchema = z.object({
+  page: z.coerce.number().int().positive().optional().default(1),
+  perPage: z.coerce.number().int().positive().max(100).optional().default(20),
+  isRead: z.preprocess((val) => (val === "true" ? true : val === "false" ? false : val), z.boolean().optional()),
+  isArchived: z.preprocess((val) => (val === "true" ? true : val === "false" ? false : val), z.boolean().optional()),
+  type: NotificationTypeEnum.optional(),
+  priority: NotificationPriorityEnum.optional(),
+  search: z.string().optional(),
+});
+
+export const CreateNotificationSchema = z.object({
+  userId: z.string().min(1, "User ID is required"),
+  type: NotificationTypeEnum.default("SYSTEM_ALERT"),
+  title: z.string().min(1, "Title is required").max(200),
+  message: z.string().min(1, "Message is required").max(2000),
+  priority: NotificationPriorityEnum.default("LOW"),
+  entityType: z.string().optional(),
+  entityId: z.string().optional(),
+  actionUrl: z.string().optional(),
+  metadata: z.record(z.unknown()).optional(),
+});
+
+export const UpdateNotificationPreferenceSchema = z.object({
+  inAppEnabled: z.boolean().optional(),
+  emailEnabled: z.boolean().optional(),
+  emailAddress: z.string().email().nullable().optional(),
+  tasksCategory: z.boolean().optional(),
+  projectsCategory: z.boolean().optional(),
+  crmCategory: z.boolean().optional(),
+  financeCategory: z.boolean().optional(),
+  documentsCategory: z.boolean().optional(),
+  systemCategory: z.boolean().optional(),
+  minPriority: NotificationPriorityEnum.optional(),
+});
+
+export const notificationQuerySchema = NotificationQuerySchema;
+export const createNotificationSchema = CreateNotificationSchema;
+export const updateNotificationPreferenceSchema = UpdateNotificationPreferenceSchema;

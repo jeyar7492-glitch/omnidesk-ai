@@ -15,6 +15,7 @@ import {
 import { prisma } from "../../lib/prisma";
 import { wsManager } from "../../lib/websocket";
 import { NotFoundError, ValidationError, ForbiddenError } from "../../lib/errors";
+import { NotificationService } from "../../notifications/services/notification.service";
 
 export function roundCurrency(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100;
@@ -574,6 +575,23 @@ export class FinanceService {
       userId ? { userId } : undefined
     );
 
+    if (userId) {
+      NotificationService.getInstance()
+        .createNotification({
+          workspaceId,
+          recipientId: userId,
+          type: "INVOICE_SENT",
+          title: `Invoice sent: ${invoice.invoiceNumber}`,
+          message: `Invoice ${invoice.invoiceNumber} for $${invoice.totalAmount.toLocaleString()} has been marked as sent.`,
+          priority: "LOW",
+          entityType: "invoice",
+          entityId: invoice.id,
+          actionUrl: `/finance?tab=invoices&selected=${invoice.id}`,
+          metadata: { invoiceId: invoice.id, invoiceNumber: invoice.invoiceNumber, totalAmount: invoice.totalAmount },
+        })
+        .catch(() => {});
+    }
+
     return updated;
   }
 
@@ -758,6 +776,23 @@ export class FinanceService {
         status: newStatus,
       }
     );
+
+    if (data.userId) {
+      NotificationService.getInstance()
+        .createNotification({
+          workspaceId,
+          recipientId: data.userId,
+          type: "PAYMENT_RECEIVED",
+          title: `Payment received: $${paymentAmount.toLocaleString()} for ${invoice.invoiceNumber}`,
+          message: `Payment of $${paymentAmount.toLocaleString()} recorded for invoice ${invoice.invoiceNumber}. New status: ${newStatus}.`,
+          priority: "MEDIUM",
+          entityType: "payment",
+          entityId: payment.id,
+          actionUrl: `/finance?tab=invoices&selected=${invoice.id}`,
+          metadata: { paymentId: payment.id, invoiceId: invoice.id, amount: paymentAmount, invoiceStatus: newStatus },
+        })
+        .catch(() => {});
+    }
 
     return {
       payment,
@@ -1165,6 +1200,23 @@ export class FinanceService {
       approverId ? { userId: approverId } : undefined
     );
 
+    if (expense.createdById && expense.createdById !== approverId) {
+      NotificationService.getInstance()
+        .createNotification({
+          workspaceId,
+          recipientId: expense.createdById,
+          type: "EXPENSE_APPROVED",
+          title: `Expense approved: $${expense.amount.toLocaleString()} (${expense.vendor})`,
+          message: `Your expense for ${expense.vendor} ($${expense.amount.toLocaleString()}) has been approved.`,
+          priority: "LOW",
+          entityType: "expense",
+          entityId: expense.id,
+          actionUrl: `/finance?tab=expenses&selected=${expense.id}`,
+          metadata: { expenseId: expense.id, amount: expense.amount, vendor: expense.vendor },
+        })
+        .catch(() => {});
+    }
+
     return updated;
   }
 
@@ -1197,6 +1249,23 @@ export class FinanceService {
       { expenseId: expense.id, status: "rejected" },
       approverId ? { userId: approverId } : undefined
     );
+
+    if (expense.createdById && expense.createdById !== approverId) {
+      NotificationService.getInstance()
+        .createNotification({
+          workspaceId,
+          recipientId: expense.createdById,
+          type: "EXPENSE_REJECTED",
+          title: `Expense rejected: $${expense.amount.toLocaleString()} (${expense.vendor})`,
+          message: `Your expense for ${expense.vendor} ($${expense.amount.toLocaleString()}) was rejected.`,
+          priority: "HIGH",
+          entityType: "expense",
+          entityId: expense.id,
+          actionUrl: `/finance?tab=expenses&selected=${expense.id}`,
+          metadata: { expenseId: expense.id, amount: expense.amount, vendor: expense.vendor },
+        })
+        .catch(() => {});
+    }
 
     return updated;
   }

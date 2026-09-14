@@ -50,6 +50,13 @@ import {
   KnowledgeBaseDetail,
   KnowledgeSearchResponse,
   RAGContext,
+  NotificationSummary,
+  NotificationDetail,
+  NotificationPreferenceSummary,
+  UpdateNotificationPreferenceInput,
+  NotificationQuery,
+  NotificationListResponse,
+  UnreadNotificationCountResponse,
 } from "@omnidesk/shared-types";
 
 
@@ -1486,6 +1493,65 @@ export class ApiClient {
     return this.request<RAGContext>("/knowledge/context", {
       method: "POST",
       body: JSON.stringify({ query, ...options }),
+    });
+  }
+
+  // ── Enterprise Notifications & Preferences (Phase 8) ──────────────────────
+  public async listNotifications(query?: NotificationQuery): Promise<NotificationListResponse> {
+    const params = new URLSearchParams();
+    if (query?.page) params.append("page", String(query.page));
+    if (query?.limit) params.append("limit", String(query.limit));
+    if (query?.type) params.append("type", query.type);
+    if (query?.priority) params.append("priority", query.priority);
+    if (query?.unreadOnly !== undefined) params.append("unreadOnly", String(query.unreadOnly));
+    if (query?.includeArchived !== undefined) params.append("includeArchived", String(query.includeArchived));
+    if (query?.search) params.append("search", query.search);
+    const qs = params.toString();
+    return this.request<NotificationListResponse>(`/notifications${qs ? `?${qs}` : ""}`);
+  }
+
+  public async getUnreadNotificationCount(): Promise<UnreadNotificationCountResponse> {
+    return this.request<UnreadNotificationCountResponse>("/notifications/unread-count");
+  }
+
+  public async getNotificationById(id: string): Promise<NotificationDetail> {
+    return this.request<NotificationDetail>(`/notifications/${id}`);
+  }
+
+  public async markNotificationRead(id: string): Promise<NotificationSummary> {
+    return this.request<NotificationSummary>(`/notifications/${id}/read`, {
+      method: "PATCH",
+    });
+  }
+
+  public async markNotificationUnread(id: string): Promise<NotificationSummary> {
+    return this.request<NotificationSummary>(`/notifications/${id}/unread`, {
+      method: "PATCH",
+    });
+  }
+
+  public async markAllNotificationsRead(): Promise<{ updatedCount: number }> {
+    return this.request<{ updatedCount: number }>("/notifications/read-all", {
+      method: "POST",
+    });
+  }
+
+  public async archiveNotification(id: string): Promise<NotificationSummary> {
+    return this.request<NotificationSummary>(`/notifications/${id}/archive`, {
+      method: "PATCH",
+    });
+  }
+
+  public async getNotificationPreferences(): Promise<NotificationPreferenceSummary> {
+    return this.request<NotificationPreferenceSummary>("/notification-preferences");
+  }
+
+  public async updateNotificationPreferences(
+    data: UpdateNotificationPreferenceInput
+  ): Promise<NotificationPreferenceSummary> {
+    return this.request<NotificationPreferenceSummary>("/notification-preferences", {
+      method: "PUT",
+      body: JSON.stringify(data),
     });
   }
 }

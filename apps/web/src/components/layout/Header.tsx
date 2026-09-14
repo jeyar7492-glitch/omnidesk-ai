@@ -2,6 +2,7 @@ import React from "react";
 import { useWorkspace } from "../../context/WorkspaceContext";
 import { StatusBadge } from "../common/StatusBadge";
 import { RefreshCw, ShieldCheck, LogOut, User, Search } from "lucide-react";
+import { NotificationBell } from "../notifications";
 
 export const Header: React.FC<{ activeTabTitle: string; onOpenSearch?: () => void }> = ({
   activeTabTitle,
@@ -129,6 +130,9 @@ export const Header: React.FC<{ activeTabTitle: string; onOpenSearch?: () => voi
             </span>
           </div>
         )}
+
+        {/* Enterprise Notification Bell (Phase 8) */}
+        <NotificationBell />
 
         {/* Refresh Health Button */}
         <button

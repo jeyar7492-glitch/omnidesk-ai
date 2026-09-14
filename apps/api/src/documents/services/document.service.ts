@@ -7,6 +7,7 @@ import { DocumentChunker } from '../chunking/chunker.service';
 import { getEmbeddingProvider } from '../embeddings/embedding.service';
 import { wsManager } from '../../lib/websocket';
 import { NotFoundError } from '../../lib/errors';
+import { NotificationService } from '../../notifications/services/notification.service';
 import {
   DocumentDetail,
   DocumentSummary,
@@ -383,6 +384,24 @@ export class DocumentService {
         chunkCount: rawChunks.length,
         extractedLength: extracted.text.length,
       });
+
+      const recipientUserId = document.uploadedBy || document.ownerId;
+      if (recipientUserId) {
+        NotificationService.getInstance()
+          .createNotification({
+            workspaceId,
+            recipientId: recipientUserId,
+            type: "DOCUMENT_PROCESSED",
+            title: `Document processed: ${document.name}`,
+            message: `Document "${document.name}" was successfully processed and indexed (${rawChunks.length} chunks).`,
+            priority: "LOW",
+            entityType: "document",
+            entityId: document.id,
+            actionUrl: `/knowledge?docId=${document.id}`,
+            metadata: { documentId: document.id, chunkCount: rawChunks.length },
+          })
+          .catch(() => {});
+      }
     } catch (err: any) {
       console.error(`[DocumentService] Error processing document ${documentId}:`, err);
       const errorMessage = err.message || 'Processing failed';
@@ -399,6 +418,29 @@ export class DocumentService {
         documentId,
         error: errorMessage,
       });
+
+      const failedDoc = await prisma.document.findUnique({
+        where: { id: documentId },
+        select: { id: true, name: true, uploadedBy: true, ownerId: true },
+      });
+      const failedRecipientId = failedDoc?.uploadedBy || failedDoc?.ownerId;
+
+      if (failedRecipientId) {
+        NotificationService.getInstance()
+          .createNotification({
+            workspaceId,
+            recipientId: failedRecipientId,
+            type: "DOCUMENT_FAILED",
+            title: `Document processing failed: ${failedDoc?.name || "Document"}`,
+            message: `Processing failed for "${failedDoc?.name || "Document"}": ${errorMessage.slice(0, 100)}`,
+            priority: "HIGH",
+            entityType: "document",
+            entityId: failedDoc?.id || documentId,
+            actionUrl: `/knowledge?docId=${failedDoc?.id || documentId}`,
+            metadata: { documentId: failedDoc?.id || documentId, error: errorMessage.slice(0, 200) },
+          })
+          .catch(() => {});
+      }
     }
   }
 

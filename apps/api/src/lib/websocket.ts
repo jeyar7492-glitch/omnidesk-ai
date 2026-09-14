@@ -277,6 +277,41 @@ export class WebSocketManager {
     });
   }
 
+  /**
+   * Send an event strictly to a specific user authenticated in the target workspace.
+   */
+  public sendToUser<T>(
+    workspaceId: string,
+    userId: string,
+    event: string,
+    payload: T,
+    sender?: { userId: string; role?: string }
+  ): void {
+    if (!workspaceId || !userId) return;
+
+    const envelope: RealtimeEventEnvelope<T> = {
+      id: `evt_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      event,
+      workspaceId,
+      payload,
+      timestamp: new Date().toISOString(),
+      sender,
+    };
+
+    const dataStr = JSON.stringify(envelope);
+
+    this.clients.forEach((client) => {
+      // STRICT TENANT & USER ISOLATION:
+      if (
+        client.readyState === WebSocket.OPEN &&
+        client.workspaceId === workspaceId &&
+        client.userId === userId
+      ) {
+        client.send(dataStr);
+      }
+    });
+  }
+
   public getConnectedClientsCount(): number {
     return this.clients.size;
   }

@@ -74,14 +74,14 @@ export class WebSocketClient {
       this.socket.onmessage = (event) => {
         try {
           const parsed = JSON.parse(event.data);
-          const eventType = parsed.type || parsed.eventType;
+          const eventType = parsed.event || parsed.type || parsed.eventType;
           if (eventType) {
             const liveEvent: LiveEvent = {
               eventType,
               workspaceId: parsed.workspaceId || "",
               executionId: parsed.executionId || parsed.data?.executionId,
               timestamp: parsed.timestamp || new Date().toISOString(),
-              data: parsed.data !== undefined ? parsed.data : parsed,
+              data: parsed.data !== undefined ? parsed.data : (parsed.payload !== undefined ? parsed.payload : parsed),
             };
 
             // Notify specific listeners
