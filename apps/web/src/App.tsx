@@ -14,6 +14,7 @@ import { SystemView } from "./components/system/SystemView";
 import { LoginView } from "./components/auth/LoginView";
 import { GlobalSearchModal } from "./components/search/GlobalSearchModal";
 import { Shield } from "lucide-react";
+import { DemoWorkspace } from "./components/demo/DemoWorkspace";
 
 function WorkspaceApp(): React.ReactElement {
   const { isAuthenticated, isLoadingAuth } = useWorkspace();
@@ -121,6 +122,9 @@ function WorkspaceApp(): React.ReactElement {
 
 
 export function App(): React.ReactElement {
+  const demoMode = (import.meta as any).env?.VITE_DEMO_MODE !== "false";
+  if (demoMode) return <DemoWorkspace />;
+
   return (
     <WorkspaceProvider>
       <WorkspaceApp />
