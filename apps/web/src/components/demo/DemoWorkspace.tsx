@@ -2,7 +2,7 @@ import React, { useMemo, useState } from "react";
 import {
   Activity, Bot, BriefcaseBusiness, CheckSquare, CircleDollarSign, FileText,
   LayoutDashboard, MessageSquare, Search, Settings2, Users, Plus, Bell,
-  ArrowUpRight, Clock3, ShieldCheck, Sparkles, X
+  ArrowUpRight, Clock3, ShieldCheck, Sparkles, X, LogOut
 } from "lucide-react";
 
 type Section = "Overview" | "AI Agents" | "Projects" | "Tasks" | "CRM" | "Finance" | "Knowledge" | "Communication" | "System";
@@ -34,6 +34,7 @@ const demoModules: Record<Exclude<Section, "Overview" | "Tasks">, { description:
 
 export const DemoWorkspace: React.FC = () => {
   const [active, setActive] = useState<Section>("Overview");
+  const [signedOut, setSignedOut] = useState(false);
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
   const [showTaskForm, setShowTaskForm] = useState(false);
   const [taskTitle, setTaskTitle] = useState("");
@@ -56,6 +57,17 @@ export const DemoWorkspace: React.FC = () => {
   const muted: React.CSSProperties = { color: "#93a4bb", fontSize: 13 };
   const pageTitle = active === "Overview" ? "Executive command center" : active;
 
+  if (signedOut) {
+    return <div style={{ minHeight: "100vh", display: "grid", placeItems: "center", background: "#0a1220", color: "#e8eef7", fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif", padding: 24 }}>
+      <section style={{ maxWidth: 420, width: "100%", textAlign: "center", background: "#111c2d", border: "1px solid #26364c", borderRadius: 16, padding: 32 }}>
+        <div style={{ width: 52, height: 52, borderRadius: 14, margin: "0 auto 16px", display: "grid", placeItems: "center", background: "linear-gradient(135deg,#06b6d4,#6366f1)" }}><LogOut size={24}/></div>
+        <h1 style={{ fontSize: 22, margin: "0 0 8px" }}>You have exited the demo</h1>
+        <p style={{ color: "#93a4bb", fontSize: 13, lineHeight: 1.6 }}>This prototype does not use a real authenticated account. Your demo session is closed on this screen.</p>
+        <button onClick={() => setSignedOut(false)} style={{ marginTop: 12, border: 0, borderRadius: 9, padding: "11px 16px", background: "#06b6d4", color: "#05202a", fontWeight: 750, cursor: "pointer" }}>Return to demo</button>
+      </section>
+    </div>;
+  }
+
   return <div style={{ minHeight: "100vh", background: "#0a1220", color: "#e8eef7", display: "flex", fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif" }}>
     <aside style={{ width: 236, flexShrink: 0, background: "#0d1727", borderRight: "1px solid #233247", padding: "24px 14px", display: "flex", flexDirection: "column" }}>
       <div style={{ display: "flex", gap: 11, alignItems: "center", padding: "0 8px 28px" }}>
@@ -77,7 +89,7 @@ export const DemoWorkspace: React.FC = () => {
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <div style={{ position: "relative" }}><Search size={15} color="#93a4bb" style={{ position: "absolute", left: 11, top: 11 }}/><input aria-label="Search demo data" value={query} onChange={e => setQuery(e.target.value)} placeholder="Search tasks..." style={{ width: 180, background: "#111c2d", border: "1px solid #293a50", borderRadius: 9, padding: "9px 12px 9px 34px", color: "#e8eef7", outline: "none" }}/></div>
           <button onClick={() => setNotice("You are viewing sample demo notifications.")} title="Notifications" style={{ border: "1px solid #293a50", borderRadius: 9, background: "#111c2d", color: "#cbd5e1", padding: 9, cursor: "pointer" }}><Bell size={17}/></button>
-          <div style={{ width: 34, height: 34, borderRadius: "50%", display: "grid", placeItems: "center", background: "#164e63", color: "#a5f3fc", fontWeight: 700 }}>JD</div>
+          <div style={{ width: 34, height: 34, borderRadius: "50%", display: "grid", placeItems: "center", background: "#164e63", color: "#a5f3fc", fontWeight: 700 }}>JD</div><button onClick={() => setSignedOut(true)} title="Log out of demo" aria-label="Log out of demo" style={{ display: "flex", alignItems: "center", gap: 7, border: "1px solid #293a50", borderRadius: 9, background: "#111c2d", color: "#cbd5e1", padding: "9px 11px", cursor: "pointer", fontSize: 12 }}><LogOut size={15}/> Logout</button>
         </div>
       </header>
       <div style={{ padding: 30, maxWidth: 1500, margin: "0 auto" }}>
