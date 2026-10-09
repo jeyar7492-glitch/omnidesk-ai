@@ -17,7 +17,10 @@ healthRouter.get("/", async (_req: Request, res: Response) => {
   }
 
   const isHealthy = dbStatus === "connected";
-  const statusCode = isHealthy ? 200 : 503;
+  // In explicit demo mode, keep the prototype reachable while reporting DB degradation honestly.
+  // This is a liveness compromise for the demo only, not a production readiness signal.
+  const demoMode = process.env.DEMO_MODE === "true";
+  const statusCode = isHealthy || demoMode ? 200 : 503;
 
   res.status(statusCode).json({
     status: isHealthy ? "ok" : "degraded",
