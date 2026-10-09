@@ -122,7 +122,7 @@ function WorkspaceApp(): React.ReactElement {
 
 
 export function App(): React.ReactElement {
-  const demoMode = (import.meta as any).env?.VITE_DEMO_MODE !== "false";
+  const demoMode = (import.meta as any).env?.VITE_DEMO_MODE === "true";
   if (demoMode) return <DemoWorkspace />;
 
   return (
